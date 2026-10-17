@@ -102,6 +102,15 @@ name exactly matches the custom release version. The privileged service also
 requires the update installer to use the same signer as the installed build.
 Unsafe signer-mismatch and not-newer fallbacks are disabled in custom builds.
 
+The updater shows the saved connection explicitly; an empty update proxy means
+direct access, and the example in an empty input is not an enabled proxy.
+Downloads can be cancelled until installer handoff. Cancellation waits for
+stream closure and partial-file cleanup. Transient download failures retry at
+most three times on the same connection, with validated Range/If-Range resume
+when available and a 30-second connection/inactivity timeout. An explicit proxy
+never falls back to direct access. See
+`docs/UPDATE-DOWNLOAD-2026-10-17.zh-CN.md` for validation boundaries.
+
 ## Secrets and releases
 
 CI is intentionally test-only and receives no signing material. Windows

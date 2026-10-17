@@ -1,10 +1,5 @@
 import { execFile } from "node:child_process";
-import { createWriteStream } from "node:fs";
-import { mkdir, readdir, rename, rm, stat } from "node:fs/promises";
-import { basename, join } from "node:path";
-import { Readable } from "node:stream";
-import { pipeline } from "node:stream/promises";
-import type { ReadableStream as WebReadableStream } from "node:stream/web";
+import { join } from "node:path";
 
 import { app, BrowserWindow, ipcMain, session } from "electron";
 import { compare, gt, prerelease, valid } from "semver";
@@ -22,6 +17,8 @@ import { applicationCacheDirectory } from "./appCache";
 import { parseBooleanPreference, Preference } from "./database";
 import { desktopService } from "./daemon";
 import { normalizeUpdateProxyAddress, UpdateConnection, type UpdateFetch } from "./updateConnection";
+import { downloadUpdateFile } from "./updateDownload";
+import { UpdateInstallation } from "./updateInstallation";
 import {
   isChannelVersion,
   isTrustedDownloadURL,
@@ -85,6 +82,7 @@ const updateProxyPreference = new Preference("update_proxy", "", normalizeUpdate
 const updateConnection = new UpdateConnection(() =>
   session.fromPartition("mxh-route-updates", { cache: false }),
 );
+const installation = new UpdateInstallation();
 
 function currentTrack(): UpdateTrack {
   if (__CUSTOM_BUILD__) {
@@ -97,6 +95,7 @@ const runtime = {
   info: null as AppUpdateInfo | null,
   checking: false,
   downloading: false,
+  cancelling: false,
   installing: false,
   downloadProgress: 0,
 };
@@ -113,6 +112,7 @@ function updatesState(): UpdatesState {
     info: runtime.info,
     checking: runtime.checking,
     downloading: runtime.downloading,
+    cancelling: runtime.cancelling,
     installing: runtime.installing,
     downloadProgress: runtime.downloadProgress,
   };
@@ -254,6 +254,7 @@ async function checkForUpdate(): Promise<AppUpdateInfo | null> {
   if (runtime.checking) {
     throw new Error("update check already in progress");
   }
+  if (runtime.downloading || runtime.installing) return runtime.info;
   runtime.checking = true;
   broadcastState();
   try {
@@ -303,70 +304,33 @@ async function checkForUpdate(): Promise<AppUpdateInfo | null> {
 }
 
 function reportDownloadProgress(progress: number): void {
-  if (progress < 1 && progress - runtime.downloadProgress < 0.01) {
+  if (progress < 1 && Math.abs(progress - runtime.downloadProgress) < 0.01) {
     return;
   }
   runtime.downloadProgress = progress;
   broadcastState();
 }
 
-async function downloadUpdate(info: AppUpdateInfo): Promise<string> {
+async function downloadUpdate(info: AppUpdateInfo, signal: AbortSignal): Promise<string> {
   if (!isTrustedDownloadURL(__CUSTOM_BUILD__, info.downloadURL)) {
     throw new Error("untrusted update download URL");
   }
-  const directory = join(applicationCacheDirectory(), "updates");
-  await mkdir(directory, { recursive: true });
-  const fileName = basename(new URL(info.downloadURL).pathname);
-  if (fileName === "" || fileName === "." || fileName === "..") {
-    throw new Error("invalid update download URL");
+  const proxy = updateProxyPreference.get();
+  try {
+    return await updateConnection.run(proxy, (fetchUpdate) => downloadUpdateFile({
+      directory: join(applicationCacheDirectory(), "updates"),
+      url: info.downloadURL,
+      fileSize: info.fileSize,
+      fetchUpdate,
+      signal,
+      userAgent: userAgent(),
+      onProgress: reportDownloadProgress,
+    }), signal);
+  } catch (error) {
+    signal.throwIfAborted();
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(`Update download (${proxy === "" ? "direct connection" : `proxy ${proxy}`}): ${reason}`);
   }
-  const destination = join(directory, fileName);
-
-  const existing = await stat(destination).catch(() => null);
-  if (existing !== null && info.fileSize > 0 && existing.size === info.fileSize) {
-    reportDownloadProgress(1);
-    return destination;
-  }
-
-  const staleEntries = await readdir(directory).catch(() => [] as string[]);
-  for (const entry of staleEntries) {
-    if (entry !== fileName) {
-      await rm(join(directory, entry), { recursive: true, force: true }).catch(() => {});
-    }
-  }
-  await rm(destination, { force: true });
-
-  return updateConnection.run(updateProxyPreference.get(), async (fetchUpdate) => {
-    const response = await fetchUpdate(info.downloadURL, {
-      headers: { "User-Agent": userAgent() },
-    });
-    if (!response.ok || response.body === null) {
-      throw new Error(`download update: HTTP ${response.status}`);
-    }
-    const totalBytes = Number(response.headers.get("content-length") ?? "") || info.fileSize;
-    const temporary = `${destination}.download`;
-    let written = 0;
-    await pipeline(
-      Readable.fromWeb(response.body as unknown as WebReadableStream),
-      async function* (source: AsyncIterable<Buffer>) {
-        for await (const chunk of source) {
-          written += chunk.length;
-          if (totalBytes > 0) {
-            reportDownloadProgress(Math.min(written / totalBytes, 1));
-          }
-          yield chunk;
-        }
-      },
-      createWriteStream(temporary),
-    );
-    if (info.fileSize > 0 && written !== info.fileSize) {
-      await rm(temporary, { force: true });
-      throw new Error(`downloaded update is truncated: ${written} of ${info.fileSize} bytes`);
-    }
-    await rename(temporary, destination);
-    reportDownloadProgress(1);
-    return destination;
-  });
 }
 
 function launchUpdateInstallerElevated(installerPath: string): Promise<boolean> {
@@ -409,6 +373,7 @@ function launchUpdateInstallerElevated(installerPath: string): Promise<boolean> 
 
 function resetInstallationState(): void {
   runtime.downloading = false;
+  runtime.cancelling = false;
   runtime.installing = false;
   runtime.downloadProgress = 0;
   broadcastState();
@@ -426,6 +391,7 @@ function prepareInstallation(): AppUpdateInfo {
     throw new Error("update installation already in progress");
   }
   runtime.downloading = true;
+  runtime.cancelling = false;
   runtime.installing = false;
   runtime.downloadProgress = 0;
   broadcastState();
@@ -435,33 +401,36 @@ function prepareInstallation(): AppUpdateInfo {
 async function downloadAndInstall(): Promise<UpdateInstallResult> {
   const info = prepareInstallation();
   try {
-    const installerPath = await downloadUpdate(info);
-    if (desktopService === null) {
-      throw new Error("daemon is not available");
-    }
-    runtime.downloading = false;
-    runtime.installing = true;
-    broadcastState();
-    const response = await desktopService.installUpdate({ installerPath });
-    switch (response.result) {
-      case InstallUpdateResult.STARTED:
-        app.quit();
-        return "started";
-      case InstallUpdateResult.SIGNER_MISMATCH:
-        if (__CUSTOM_BUILD__) {
-          throw new Error("custom update signer does not match the installed application");
-        }
-        resetInstallationState();
-        return "signer-mismatch";
-      case InstallUpdateResult.NOT_NEWER:
-        if (__CUSTOM_BUILD__) {
-          throw new Error("custom update installer is not newer than the installed application");
-        }
-        resetInstallationState();
-        return "not-newer";
-      default:
-        throw new Error("daemon returned an invalid update installation result");
-    }
+    const result = await installation.run((signal) => downloadUpdate(info, signal), async (installerPath) => {
+      if (desktopService === null) {
+        throw new Error("daemon is not available");
+      }
+      runtime.downloading = false;
+      runtime.installing = true;
+      broadcastState();
+      const response = await desktopService.installUpdate({ installerPath });
+      switch (response.result) {
+        case InstallUpdateResult.STARTED:
+          app.quit();
+          return "started";
+        case InstallUpdateResult.SIGNER_MISMATCH:
+          if (__CUSTOM_BUILD__) {
+            throw new Error("custom update signer does not match the installed application");
+          }
+          resetInstallationState();
+          return "signer-mismatch";
+        case InstallUpdateResult.NOT_NEWER:
+          if (__CUSTOM_BUILD__) {
+            throw new Error("custom update installer is not newer than the installed application");
+          }
+          resetInstallationState();
+          return "not-newer";
+        default:
+          throw new Error("daemon returned an invalid update installation result");
+      }
+    });
+    if (result === "cancelled") resetInstallationState();
+    return result;
   } catch (error) {
     resetInstallationState();
     throw error;
@@ -474,17 +443,23 @@ async function installWithElevation(): Promise<boolean> {
   }
   const info = prepareInstallation();
   try {
-    const installerPath = await downloadUpdate(info);
-    runtime.downloading = false;
-    runtime.installing = true;
-    broadcastState();
-    const launched = await launchUpdateInstallerElevated(installerPath);
-    if (!launched) {
+    const result = await installation.run((signal) => downloadUpdate(info, signal), async (installerPath) => {
+      runtime.downloading = false;
+      runtime.installing = true;
+      broadcastState();
+      const launched = await launchUpdateInstallerElevated(installerPath);
+      if (!launched) {
+        resetInstallationState();
+        return false;
+      }
+      app.quit();
+      return true;
+    });
+    if (result === "cancelled") {
       resetInstallationState();
       return false;
     }
-    app.quit();
-    return true;
+    return result;
   } catch (error) {
     resetInstallationState();
     throw error;
@@ -526,6 +501,13 @@ const handlers: Record<string, (...callArguments: never[]) => Promise<unknown>> 
   },
 
   downloadAndInstall,
+
+  async cancelDownload(): Promise<boolean> {
+    if (!runtime.downloading || runtime.installing) return false;
+    runtime.cancelling = true;
+    broadcastState();
+    return installation.cancel();
+  },
 
   installWithElevation,
 

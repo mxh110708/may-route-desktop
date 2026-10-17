@@ -2,6 +2,7 @@
 // All HTTP(S) targets and proxies are temporary loopback servers.
 const assert = require("node:assert/strict");
 const { execFileSync } = require("node:child_process");
+const { X509Certificate } = require("node:crypto");
 const { mkdtempSync, readFileSync, rmSync, writeFileSync } = require("node:fs");
 const http = require("node:http");
 const https = require("node:https");
@@ -76,7 +77,15 @@ app.whenReady().then(async () => {
   const modulePath = join(directory, "updateConnection.cjs");
   writeFileSync(modulePath, compiled);
   const { UpdateConnection } = require(modulePath);
-  execFileSync("openssl", ["req", "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1", "-subj", "/CN=127.0.0.1", "-addext", "subjectAltName=IP:127.0.0.1", "-keyout", join(directory, "test.key"), "-out", join(directory, "test.crt")], { stdio: "ignore" });
+  for (const name of ["updateDownload", "updateInstallation"]) {
+    writeFileSync(join(directory, `${name}.cjs`), ts.transpileModule(readFileSync(join(__dirname, `../src/main/${name}.ts`), "utf8"), {
+      compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+    }).outputText);
+  }
+  const { downloadUpdateFile } = require(join(directory, "updateDownload.cjs"));
+  const { UpdateInstallation } = require(join(directory, "updateInstallation.cjs"));
+  writeFileSync(join(directory, "openssl.cnf"), "[req]\ndistinguished_name=subject\n[subject]\n");
+  execFileSync("openssl", ["req", "-config", join(directory, "openssl.cnf"), "-x509", "-newkey", "rsa:2048", "-nodes", "-days", "1", "-subj", "/CN=127.0.0.1", "-addext", "subjectAltName=IP:127.0.0.1", "-keyout", join(directory, "test.key"), "-out", join(directory, "test.crt")], { stdio: "ignore" });
   const tls = { key: readFileSync(join(directory, "test.key")), cert: readFileSync(join(directory, "test.crt")) };
   const handleTarget = (request, response) => {
     hits.target += 1;
@@ -86,6 +95,9 @@ app.whenReady().then(async () => {
     } else if (request.url === "/redirect") {
       response.writeHead(302, { Location: "/installer" });
       response.end();
+    } else if (request.url === "/slow") {
+      response.writeHead(200, { "Content-Length": body.length });
+      response.write(body.subarray(0, 32768));
     } else {
       response.setHeader("Content-Length", body.length);
       response.write(body.subarray(0, 65536));
@@ -138,7 +150,7 @@ app.whenReady().then(async () => {
   const isolated = session.fromPartition("mxh-route-update-network-test", { cache: false });
   // Trust only this test's exact ephemeral certificate, only in the test session.
   isolated.setCertificateVerifyProc((request, callback) => {
-    callback(request.hostname === "127.0.0.1" && request.certificate.data.trim() === tls.cert.toString().trim() ? 0 : -3);
+    callback(request.hostname === "127.0.0.1" && new X509Certificate(request.certificate.data).fingerprint256 === new X509Certificate(tls.cert).fingerprint256 ? 0 : -3);
   });
   const network = new UpdateConnection(() => isolated);
   const target = `http://127.0.0.1:${targetPort}`;
@@ -156,6 +168,22 @@ app.whenReady().then(async () => {
     // HTTP keep-alive reuses SOCKS tunnels, so count the two target connections.
     if (kind !== null) assert.ok(hits[kind] - proxyHitsBefore >= 2, JSON.stringify(hits));
     console.log(`PASS: ${proxy === "" ? "direct" : new URL(proxy).protocol} release query, redirects and streamed HTTP(S) download`);
+    const downloadDirectory = join(directory, `download-${kind ?? "direct"}`);
+    const downloadOptions = { directory: downloadDirectory, url: `${tlsTarget}/redirect`, fileSize: body.length, userAgent: "update-test", onProgress() {} };
+    const installed = await network.run(proxy, fetchUpdate => downloadUpdateFile({ ...downloadOptions, fetchUpdate, signal: AbortSignal.timeout(10000) }));
+    assert.deepEqual(readFileSync(installed), body);
+    const job = new UpdateInstallation();
+    let cancel;
+    let installations = 0;
+    const cancelled = await job.run(signal => network.run(proxy, fetchUpdate => downloadUpdateFile({
+      ...downloadOptions, url: `${tlsTarget}/slow`, fetchUpdate, signal,
+      onProgress(progress) { if (progress > 0 && cancel === undefined) cancel = job.cancel(); },
+    }), signal), async () => { installations += 1; return "started"; });
+    assert.equal(cancelled, "cancelled");
+    assert.equal(await cancel, true);
+    assert.equal(installations, 0);
+    assert.deepEqual(require("node:fs").readdirSync(downloadDirectory), []);
+    console.log(`PASS: ${kind ?? "direct"} production file download, cancellation, partial cleanup and no installer handoff`);
   }
   await new Promise((resolve) => httpProxy.close(resolve));
   const beforeFailure = hits.target;

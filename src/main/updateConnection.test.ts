@@ -121,3 +121,24 @@ test("failure to apply a proxy or close old sockets prevents the request", async
   await assert.rejects(f.connection.run("", async () => { requests += 1; }), /close failed/);
   assert.equal(requests, 0);
 });
+
+test("a queued download can be cancelled before another operation releases the session", async () => {
+  const f = fixture();
+  let release!: () => void;
+  let start!: () => void;
+  const started = new Promise<void>((resolve) => { start = resolve; });
+  const first = f.connection.run("", async () => { start(); await new Promise<void>((resolve) => { release = resolve; }); });
+  await started;
+  const controller = new AbortController();
+  let requests = 0;
+  const second = f.connection.run("http://localhost:2080", async () => { requests += 1; }, controller.signal);
+  const rejected = assert.rejects(second, { name: "AbortError" });
+  controller.abort();
+  await rejected;
+  assert.equal(f.calls.length, 2);
+  assert.equal(requests, 0);
+  release();
+  await first;
+  await f.connection.run("", async () => {});
+  assert.equal(requests, 0);
+});

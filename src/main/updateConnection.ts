@@ -62,18 +62,23 @@ export class UpdateConnection {
 
   constructor(private readonly createSession: () => UpdateNetworkSession) {}
 
-  run<T>(address: string, operation: (fetchUpdate: UpdateFetch) => Promise<T>): Promise<T> {
+  run<T>(address: string, operation: (fetchUpdate: UpdateFetch) => Promise<T>, signal?: AbortSignal): Promise<T> {
     const proxy = normalizeUpdateProxyAddress(address);
+    let started = false;
     const result = this.tail.then(async () => {
+      signal?.throwIfAborted();
+      started = true;
       const network = this.session ??= this.createSession();
       // Fail closed if an old connection cannot be closed or the proxy cannot be set.
       await network.closeAllConnections();
+      signal?.throwIfAborted();
       await network.setProxy(proxy === "" ? { mode: "direct" } : {
         mode: "fixed_servers",
         proxyRules: proxy,
         proxyBypassRules: "<-loopback>",
       });
       try {
+        signal?.throwIfAborted();
         return await operation(network.fetch.bind(network));
       } finally {
         // Keep the original request/body error if closing sockets also fails.
@@ -81,6 +86,12 @@ export class UpdateConnection {
       }
     });
     this.tail = result.then(() => {}, () => {});
-    return result;
+    if (signal === undefined) return result;
+    return new Promise<T>((resolve, reject) => {
+      const cancelQueued = () => { if (!started) reject(signal.reason); };
+      signal.addEventListener("abort", cancelQueued, { once: true });
+      if (signal.aborted) cancelQueued();
+      result.then(resolve, reject).finally(() => signal.removeEventListener("abort", cancelQueued));
+    });
   }
 }

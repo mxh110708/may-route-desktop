@@ -357,7 +357,7 @@ export const UPDATES_STATE_CHANGED = "updates:state-changed";
 export const UPDATES_PRESENT = "updates:present";
 
 export type UpdateTrack = "stable" | "beta";
-export type UpdateInstallResult = "started" | "signer-mismatch" | "not-newer";
+export type UpdateInstallResult = "started" | "cancelled" | "signer-mismatch" | "not-newer";
 
 export interface AppUpdateInfo {
   versionName: string;
@@ -379,6 +379,7 @@ export interface UpdatesState {
   info: AppUpdateInfo | null;
   checking: boolean;
   downloading: boolean;
+  cancelling: boolean;
   installing: boolean;
   downloadProgress: number;
 }
@@ -390,6 +391,7 @@ export interface UpdatesBridge {
   setGitHubToken(value: string): Promise<void>;
   setProxyAddress(value: string): Promise<string>;
   downloadAndInstall(): Promise<UpdateInstallResult>;
+  cancelDownload(): Promise<boolean>;
   installWithElevation(): Promise<boolean>;
   setTrack(track: UpdateTrack): Promise<void>;
   setCheckUpdateEnabled(value: boolean): Promise<void>;
