@@ -47,8 +47,8 @@ import { CoreLogArchive } from "./coreLogArchive";
 import { showSystemProxyRecoveryWarning } from "./notifications";
 import { WindowsProxyMonitor, type WindowsProxyContext, type WindowsProxyHealth, type ProxyRecoveryCheckpoint } from "./windowsProxyMonitor";
 import { PriorityProbeScheduler } from "./priorityProbeScheduler";
-import { PriorityFailover, addProbeRoutes, allocateProbePorts, priorityTags, priorityGroups, type Candidate } from "./priorityFailover";
-import { loadPrioritySettings, parsePrioritySettings, prioritySettingsSnapshot, savePrioritySettings } from "./prioritySettings";
+import { PriorityFailover, addProbeRoutes, allocateProbePorts, priorityTags, priorityGroups, reconcilePrioritySettings, type Candidate } from "./priorityFailover";
+import { loadPrioritySettings, parsePrioritySettings, prioritySettingsSnapshot, savePrioritySettings, priorityContextRevision } from "./prioritySettings";
 import type { PriorityPanelState } from "../shared/ipc";
 import {
   ConsecutiveFailureRecovery,
@@ -444,15 +444,17 @@ async function priorityPanelState(): Promise<PriorityPanelState> {
   const rawContent = profileId ? await readFile(contentPath(profileId), "utf8") : null;
   const content = rawContent ? buildRuntimeConfig(rawContent, captureModePreference.get()) : null;
   const groups = content ? priorityGroups(content) : [];
+  const settings = content ? reconcilePrioritySettings(content, snapshot.settings) : { ...snapshot.settings, order: [] };
+  const revision = priorityContextRevision(snapshot.revision, profileId, rawContent);
   const running = daemonState.status === ServiceStatus_Type.STARTED;
   const directMode = running && startedService !== null &&
     (await startedService.getClashModeStatus({}, { timeoutMs: 1000 }).catch(() => ({ currentMode: "" }))).currentMode.toLowerCase() === "direct";
   const selected = daemonState.groups.find(group => group.tag === (priorityPolicy?.settings.group ?? snapshot.settings.group))?.selected ?? null;
-  return { ...snapshot, profileId, groups, path: prioritySettingsPath(), running, directMode,
+  return { ...snapshot, settings, revision, reconciled: JSON.stringify(settings.order) !== JSON.stringify(snapshot.settings.order), profileId, groups, path: prioritySettingsPath(), running, directMode,
     active: running && !directMode && priorityCandidates.length > 0 && !!priorityPolicy?.settings.enabled,
     preferred: priorityPolicy?.preferred ?? null,
     monitoredSelected: selected !== null && (priorityPolicy?.isMonitored(selected) ?? false),
-    needsReload: running && (JSON.stringify(priorityPolicy?.settings) !== JSON.stringify(snapshot.settings) ||
+    needsReload: running && (JSON.stringify(priorityPolicy?.settings) !== JSON.stringify(settings) ||
       rawContent !== null && createHash("sha256").update(rawContent).digest("hex") !== priorityProfileHash),
     selected,
     lastSwitch: priorityLastSwitch };
@@ -505,7 +507,7 @@ async function restorePriorityRuntime(): Promise<void> {
     if (!profile || saved.profile !== profile || saved.mode !== captureModePreference.get()) return;
     const content = await readFile(contentPath(profile), "utf8");
     if (saved.hash !== createHash("sha256").update(content).digest("hex") || !Array.isArray(saved.candidates)) return;
-    const settings = await loadPrioritySettings(prioritySettingsPath());
+    const settings = reconcilePrioritySettings(buildRuntimeConfig(content, captureModePreference.get()), await loadPrioritySettings(prioritySettingsPath()));
     if (JSON.stringify(saved.settings) !== JSON.stringify(settings)) return;
     const tags = priorityTags(buildRuntimeConfig(content, captureModePreference.get()), settings);
     if (saved.candidates.length !== tags.length || saved.candidates.some((c: Candidate, i: number) => c.tag !== tags[i] || !Number.isInteger(c.port) || c.port < 1024 || c.port > 65535)) return;
@@ -719,7 +721,7 @@ async function startServiceWithContent(
     priorityCandidates = []; priorityPolicy = null; priorityProfileId = null; priorityCaptureMode = null; priorityLastResults = null; prioritySelectedEvidence = null; prioritySwitchTarget = null;
     await archiveBoundary("before-service-start-or-reload");
     const baseContent = buildRuntimeConfig(await preparePublicRules(content), captureMode);
-    const settings = await loadPrioritySettings(prioritySettingsPath());
+    const settings = reconcilePrioritySettings(baseContent, await loadPrioritySettings(prioritySettingsPath()));
     const tags = priorityTags(baseContent, settings);
     const profileId = selectedProfileId();
     const profileHash = createHash("sha256").update(content).digest("hex");
@@ -1181,22 +1183,31 @@ const handlers: Record<
   async priorityState(): Promise<PriorityPanelState> { return priorityPanelState(); },
   async prioritySave(value: PriorityPanelState["settings"], revision: string, profileId: string | null): Promise<PriorityPanelState> {
     if (profileId !== selectedProfileId()) throw new Error("当前配置已切换，请刷新面板后重试。");
+    const view = await priorityPanelState();
+    if (view.revision !== revision || view.profileId !== profileId) throw new Error("策略文件或当前配置内容已变化，请刷新后重试。");
     const settings = parsePrioritySettings(value);
     if (settings.enabled) {
-      const view = await priorityPanelState();
       const group = view.groups.find(item => item.tag === settings.group);
       if (!group) throw new Error("请选择成员全部为实际代理节点的入口组；业务、汇总、直连及混合分组不能用于自动故障切换。");
       if (settings.order.some(tag => !group.nodes.includes(tag))) throw new Error("顺序包含不属于当前分组的代理节点，请刷新后重试。");
     }
     if (profileId !== selectedProfileId()) throw new Error("保存前当前配置发生变化，请刷新后重试。");
-    await savePrioritySettings(prioritySettingsPath(), settings, revision);
+    const snapshot = await prioritySettingsSnapshot(prioritySettingsPath());
+    const assertCurrent = async () => {
+      const current = await prioritySettingsSnapshot(prioritySettingsPath());
+      const id = selectedProfileId();
+      const content = id ? await readFile(contentPath(id), "utf8") : null;
+      const actual = priorityContextRevision(current.revision, id, content);
+      if (id !== profileId || id !== selectedProfileId() || actual !== revision) throw new Error("保存期间策略或当前配置已变化，请刷新后重试。");
+    };
+    await savePrioritySettings(prioritySettingsPath(), settings, snapshot.revision, assertCurrent);
     recordSystemProxyHealth("priority-settings-saved", { group: settings.group, enabled: settings.enabled });
     return priorityPanelState();
   },
   async priorityApply(revision: string, profileId: string | null): Promise<void> {
     await runServiceOperation(async () => {
       if (!profileId || profileId !== selectedProfileId()) throw new Error("当前配置已切换，请刷新后重试。");
-      if ((await prioritySettingsSnapshot(prioritySettingsPath())).revision !== revision) throw new Error("配置文件已改变，请刷新并确认后再重载。");
+      if ((await priorityPanelState()).revision !== revision) throw new Error("策略或当前配置内容已改变，请刷新并确认后再重载。");
       if (daemonState.status !== ServiceStatus_Type.STARTED) throw new Error("代理当前未运行；下次启动会读取已保存配置。");
       await startServiceWithContent(await readFile(contentPath(profileId), "utf8"));
     });

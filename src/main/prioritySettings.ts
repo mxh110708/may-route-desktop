@@ -49,15 +49,21 @@ export async function prioritySettingsSnapshot(path: string): Promise<{ settings
   return { settings: parsePrioritySettings(JSON.parse(content)), revision: createHash("sha256").update(content).digest("hex") };
 }
 
+export function priorityContextRevision(settingsRevision: string, profileId: string | null, content: string | null): string {
+  return createHash("sha256").update(JSON.stringify([settingsRevision, profileId, content])).digest("hex");
+}
+
 let settingsWrite: Promise<unknown> = Promise.resolve();
-export function savePrioritySettings(path: string, value: unknown, expectedRevision: string): Promise<void> {
+export function savePrioritySettings(path: string, value: unknown, expectedRevision: string, assertCurrent?: () => Promise<void>): Promise<void> {
   const task = settingsWrite.catch(() => {}).then(async () => {
     const settings = parsePrioritySettings(value);
+    await assertCurrent?.();
     if ((await prioritySettingsSnapshot(path)).revision !== expectedRevision) throw new Error("配置文件已在其他位置修改，请刷新后重试；未覆盖外部修改。");
     const temporary = `${path}.${randomUUID()}.tmp`;
     try {
       await writeFile(temporary, JSON.stringify(settings, null, 2) + "\n", { flag: "wx" });
       if ((await prioritySettingsSnapshot(path)).revision !== expectedRevision) throw new Error("保存期间配置文件发生变化，请刷新后重试。");
+      await assertCurrent?.();
       await rename(temporary, path);
     } finally { await unlink(temporary).catch(error => { if (error.code !== "ENOENT") throw error; }); }
   });

@@ -96,6 +96,8 @@ try {
     Invoke-Pnpm test:public-rules
     Invoke-Pnpm test:system-proxy-recovery
     Invoke-Pnpm test:custom-isolation
+    Invoke-Pnpm test:interface-fonts
+    Invoke-Pnpm test:tray-placement
     Invoke-Pnpm test:installer-preflight
     Invoke-Pnpm typecheck
     Invoke-Pnpm -Arguments @("-C", "dashboard", "test", "--", "--run")

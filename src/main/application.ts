@@ -1,10 +1,11 @@
-import { BrowserWindow, app, ipcMain } from "electron";
+import { BrowserWindow, app, ipcMain, shell } from "electron";
 
 import { APP_CALL } from "../shared/ipc";
 import type { ProfilesResult } from "../shared/ipc";
 import { shareFile } from "./sharing";
+import { importInterfaceFont, listInterfaceFonts, readInterfaceFont, selectInterfaceFont } from "./interfaceFonts";
 
-export function registerApplication(showMainWindow: () => void) {
+export function registerApplication(showMainWindow: (route?: string) => void) {
   ipcMain.handle(
     APP_CALL,
     async (event, method: string, ...arguments_: unknown[]): Promise<ProfilesResult> => {
@@ -12,6 +13,23 @@ export function registerApplication(showMainWindow: () => void) {
         switch (method) {
           case "version":
             return { ok: true, value: __APP_VERSION__ };
+          case "listFonts":
+            return { ok: true, value: await listInterfaceFonts() };
+          case "readFont":
+            return { ok: true, value: await readInterfaceFont(arguments_[0]) };
+          case "selectFont":
+            await selectInterfaceFont(arguments_[0]);
+            return { ok: true, value: undefined };
+          case "importFont": {
+            const window = BrowserWindow.fromWebContents(event.sender);
+            if (!window) throw new Error("Font import window unavailable.");
+            return { ok: true, value: await importInterfaceFont(window) };
+          }
+          case "openDataDirectory": {
+            const error = await shell.openPath(app.getPath("userData"));
+            if (error) throw new Error(error);
+            return { ok: true, value: undefined };
+          }
           case "shareFile": {
             const window = BrowserWindow.fromWebContents(event.sender);
             if (window === null) {
@@ -24,9 +42,12 @@ export function registerApplication(showMainWindow: () => void) {
             await shareFile(window, fileName, data);
             return { ok: true, value: undefined };
           }
-          case "showMainWindow":
-            showMainWindow();
+          case "showMainWindow": {
+            const route = arguments_[0];
+            if (route !== undefined && (typeof route !== "string" || !["overview", "groups", "connections", "logs", "settings", "settings/app", "settings/ports"].includes(route))) throw new Error("Invalid application route.");
+            showMainWindow(route as string | undefined);
             return { ok: true, value: undefined };
+          }
           // window.close() in a sandboxed renderer destroys the web contents
           // without firing the window's close event (verified against this
           // Electron build), so the tray menu window cannot dismiss itself; it

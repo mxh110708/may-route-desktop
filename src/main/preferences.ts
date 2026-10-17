@@ -80,6 +80,10 @@ function parseTerminalConfig(value: unknown): unknown {
 }
 
 const rendererPreferences: Record<string, PreferenceParser> = {
+  "interface-font": (value) => {
+    if (value !== "default" && value !== "wenkai" && (typeof value !== "string" || !/^font-[a-f0-9]{64}$/u.test(value))) throw new Error("invalid interface font preference");
+    return value;
+  },
   theme: stringChoice("auto", "light", "dark"),
   accent: (value) => {
     if (
@@ -116,6 +120,13 @@ const rendererPreferences: Record<string, PreferenceParser> = {
 };
 
 const rendererPreferenceNames = Object.keys(rendererPreferences);
+export function saveRendererPreference(name: string, value: unknown): void {
+  const parse = rendererPreferences[name];
+  if (!parse) throw new Error("unknown renderer preference");
+  const parsed = parse(value);
+  setPreference(name, parsed);
+  notifyPreferenceChanged(name, parsed);
+}
 const preferenceChangeListeners = new Set<(name: string) => void>();
 
 export function onPreferenceChanged(listener: (name: string) => void): () => void {

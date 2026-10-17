@@ -1,9 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PriorityFailover, priorityGroups, priorityTags, addProbeRoutes, allocateProbePorts } from "./priorityFailover";
+import { PriorityFailover, priorityGroups, priorityTags, addProbeRoutes, allocateProbePorts, reconcilePrioritySettings } from "./priorityFailover";
 import { redactCoreMessage, CoreLogArchive } from "./coreLogArchive";
 import { HealthLog } from "./healthLog";
-import { DEFAULT_PRIORITY_SETTINGS, parsePrioritySettings, loadPrioritySettings, prioritySettingsSnapshot, savePrioritySettings } from "./prioritySettings";
+import { DEFAULT_PRIORITY_SETTINGS, parsePrioritySettings, loadPrioritySettings, prioritySettingsSnapshot, savePrioritySettings, priorityContextRevision } from "./prioritySettings";
 import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -176,7 +176,7 @@ test("arbitrary group and node names, explicit order, disable and invalid member
   assert.deepEqual(priorityTags(content,explicit),['Other','New Vendor']);
   assert.deepEqual(JSON.parse(addProbeRoutes(content,[51001,51002],explicit).content).route.rules.map((r:any)=>r.outbound),['Other','New Vendor']);
   assert.deepEqual(priorityTags(content,parsePrioritySettings({enabled:false})),[]);
-  for(const order of [['Unknown'],['DIRECT']]) assert.throws(()=>priorityTags(content,parsePrioritySettings({group:'My Entry',order})));
+  for(const order of [['Unknown'],['DIRECT']]) assert.deepEqual(priorityTags(content,parsePrioritySettings({group:'My Entry',order})), ['New Vendor', 'Other']);
 });
 test("configured thresholds control both failure and recovery decisions", () => {
   const settings=parsePrioritySettings({failureRounds:1,backupSuccessRounds:1,recoverySuccessRounds:2,recoveryStableMs:10000,failbackCooldownMs:10000});
@@ -186,6 +186,45 @@ test("configured thresholds control both failure and recovery decisions", () => 
   p.switched(tags[2],0);
   assert.equal(p.record(sample(...tags),10000),null);
   assert.equal(p.record(sample(...tags),20000),tags[0]);
+});
+test("new configuration reconciles obsolete nodes without widening a custom subset", () => {
+  const content = JSON.stringify({ outbounds: [
+    { tag: "Entry", type: "selector", outbounds: ["retained", "new", "excluded"] },
+    ...["retained", "new", "excluded"].map(tag => ({ tag, type: "vless" })),
+  ] });
+  const old = parsePrioritySettings({ group: "Entry", order: ["removed", "retained", "old-v6"] });
+  assert.deepEqual(reconcilePrioritySettings(content, old).order, ["retained"]);
+  assert.deepEqual(priorityTags(content, old), ["retained"]);
+  assert.deepEqual(old.order, ["removed", "retained", "old-v6"]);
+  assert.deepEqual(priorityGroups(content)[0].nodes, ["retained", "new", "excluded"]);
+  const replaced = parsePrioritySettings({ group: "Entry", order: ["removed", "old-v6"] });
+  assert.deepEqual(reconcilePrioritySettings(content, replaced).order, []);
+  assert.deepEqual(priorityTags(content, replaced), ["retained", "new", "excluded"]);
+  const missingGroup = parsePrioritySettings({ group: "No Longer Present", order: ["retained"] });
+  assert.deepEqual(priorityTags(content, missingGroup), []);
+  assert.equal(reconcilePrioritySettings(content, missingGroup).group, "No Longer Present");
+  assert.deepEqual(JSON.parse(addProbeRoutes(content, [55001], old).content).route.rules.map((item: any) => item.outbound), ["retained"]);
+});
+test("editor revision binds the selected profile content as well as saved policy", () => {
+  const initial = priorityContextRevision("policy", "same-profile-id", "content A");
+  assert.notEqual(initial, priorityContextRevision("policy", "same-profile-id", "content B"));
+  assert.notEqual(initial, priorityContextRevision("changed policy", "same-profile-id", "content A"));
+  assert.notEqual(initial, priorityContextRevision("policy", "another-profile", "content A"));
+  assert.equal(initial, priorityContextRevision("policy", "same-profile-id", "content A"));
+});
+test("settings save aborts when the profile content changes without changing its ID", async () => {
+  const directory = await mkdtemp(join(tmpdir(), "priority-content-"));
+  try {
+    const path = join(directory, "policy.json");
+    const snapshot = await prioritySettingsSnapshot(path);
+    const original = await readFile(path, "utf8");
+    let calls = 0;
+    await assert.rejects(savePrioritySettings(path, { ...snapshot.settings, failureRounds: 4 }, snapshot.revision, async () => {
+      if (++calls === 2) throw new Error("profile content changed");
+    }), /profile content changed/u);
+    assert.equal(await readFile(path, "utf8"), original);
+    assert.deepEqual(await readdir(directory), ["policy.json"]);
+  } finally { await rm(directory, { recursive: true, force: true }); }
 });
 test("configured long failure intervals do not erase consecutive failure evidence", () => {
   const settings=parsePrioritySettings({failureIntervalMs:300000,failureRounds:2});

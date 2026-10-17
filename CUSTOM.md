@@ -34,6 +34,29 @@ The product name, application identity, and
 update channel remain MXH Route, and this is still an unofficial personal
 distribution.
 
+## Interface fonts and tray
+
+The original interface font remains the default. LXGW WenKai is bundled as an
+optional font with its complete OFL license. TTF/OTF imports are limited to
+32 MiB, validated and copied into `interface-fonts` inside the application user
+data directory; fonts are never installed into Windows. Main and tray windows
+share the saved choice. An unavailable font falls back to the original font.
+
+The Windows tray uses a compact, scrollable panel with in-panel group/profile
+navigation. Its entire window is placed outside the triggering icon using the
+display's DIP work area, including overflow icons and secondary displays.
+System Proxy/TUN and routing controls reuse the main window's existing backend
+operations. Closing the panel hides its window instead of leaving an invisible
+interactive surface over the taskbar.
+
+Priority failover reconciles saved order against the selected configuration on
+both the editor and runtime paths. Surviving custom members keep their order;
+new nodes remain available for explicit inclusion. An entirely obsolete order
+falls back to the current group's order, and a missing group is not replaced
+automatically. Editor revisions bind policy, profile identity and content, so a
+profile overwrite also invalidates stale edits. Unsaved edits are preserved
+with a conflict prompt; a clean editor refreshes on profile changes.
+
 ## Upstream maintenance
 
 The maintained branch is `custom-main`. The official repositories are kept as

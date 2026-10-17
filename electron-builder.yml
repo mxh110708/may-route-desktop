@@ -29,6 +29,8 @@ electronLanguages:
   - fa
   - ru
 extraResources:
+  - from: dashboard/src/assets/fonts/LXGWWenKai-OFL.txt
+    to: licenses/LXGWWenKai-OFL.txt
   - from: resources/public-rules-v1.json
     to: public-rules-v1.json
   - from: resources/trayTemplate.png

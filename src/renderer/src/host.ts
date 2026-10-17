@@ -242,15 +242,22 @@ export function createDesktopHost(): DesktopHost {
     },
     updates: bridge.updates,
     taildrop: bridge.taildrop,
+    fonts: {
+      list: () => bridge.app.listFonts(),
+      import: () => bridge.app.importFont(),
+      data: (id) => bridge.app.readFont(id),
+      select: (id) => bridge.app.selectFont(id),
+    },
     application: {
+      openDataDirectory: () => bridge.app.openDataDirectory(),
       shareFile: async (fileName, data) => {
         await bridge.app.shareFile(
           fileName,
           typeof data === "string" ? new TextEncoder().encode(data) : data,
         );
       },
-      showMainWindow: () => {
-        void bridge.app.showMainWindow();
+      showMainWindow: (route) => {
+        void bridge.app.showMainWindow(route);
       },
       closeTrayMenu: () => {
         void bridge.app.closeTrayMenu();

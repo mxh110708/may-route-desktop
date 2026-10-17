@@ -15,14 +15,22 @@ export function priorityGroups(content: string): { tag: string; nodes: string[] 
     .map((group: any) => ({ tag: group.tag, nodes: [...new Set<string>(group.outbounds)] }));
 }
 
+export function reconcilePrioritySettings(content: string, settings: PrioritySettings): PrioritySettings {
+  const group = priorityGroups(content).find((group) => group.tag === settings.group);
+  // Preserve an intentional subset; newly introduced nodes remain available in
+  // the editor instead of silently opting excluded nodes into monitoring.
+  const order = group ? settings.order.filter((tag) => group.nodes.includes(tag)) : [];
+  return { ...settings, order };
+}
+
 export function priorityTags(content: string, settings: PrioritySettings = DEFAULT_PRIORITY_SETTINGS): string[] {
   if (!settings.enabled) return [];
   const group = priorityGroups(content).find(group => group.tag === settings.group);
   if (!group) return [];
   const available = group.nodes;
   if (!settings.order.length) return available;
-  if (settings.order.some(tag => !available.includes(tag))) throw new Error("显式故障切换顺序包含不存在、不属于目标组或非代理节点的名称");
-  return [...settings.order];
+  const order = reconcilePrioritySettings(content, settings).order;
+  return order.length ? order : available;
 }
 
 export async function allocateProbePorts(count: number): Promise<number[]> {

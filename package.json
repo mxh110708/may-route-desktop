@@ -29,6 +29,8 @@
     "build": "electron-vite build",
     "check:runtime-config": "tsx scripts/checkRuntimeConfig.ts",
     "test:custom-isolation": "tsx --test scripts/customIsolation.test.ts",
+    "test:interface-fonts": "tsx --test src/main/fontLibrary.test.ts",
+    "test:tray-placement": "tsx --test src/main/trayPlacement.test.ts",
     "package-dev:win": "tsx scripts/package.ts dev win",
     "package-dev:linux": "tsx scripts/package.ts dev linux",
     "package-dev:linux:deb": "tsx scripts/package.ts dev linux deb",

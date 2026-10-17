@@ -467,7 +467,10 @@ if (!singleInstanceLock) {
     archiveNativeCrashDumps();
     terminalWindows = registerTerminalWindows(maybeQuitAfterWindowClosed);
     profileEditorWindows = registerProfileEditorWindows(maybeQuitAfterWindowClosed);
-    registerApplication(showWindow);
+    registerApplication((route) => {
+      showWindow();
+      if (route) sendWhenLoaded(APP_NAVIGATE, route);
+    });
     ipcMain.on(APP_TITLE_BAR_OVERLAY, (event, colors: TitleBarOverlayColors) => {
       if (process.platform === "darwin") {
         return;

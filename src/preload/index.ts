@@ -335,9 +335,14 @@ const bridge: DesktopBridge = {
     },
   },
   app: {
+    listFonts: () => callResult(APP_CALL, "listFonts"),
+    importFont: () => callResult(APP_CALL, "importFont"),
+    readFont: (id) => callResult(APP_CALL, "readFont", id),
+    selectFont: (id) => callResult(APP_CALL, "selectFont", id),
+    openDataDirectory: () => callResult(APP_CALL, "openDataDirectory"),
     version: () => callResult(APP_CALL, "version"),
     shareFile: (fileName, data) => callResult(APP_CALL, "shareFile", fileName, data),
-    showMainWindow: () => callResult(APP_CALL, "showMainWindow"),
+    showMainWindow: (route) => callResult(APP_CALL, "showMainWindow", route),
     closeTrayMenu: () => callResult(APP_CALL, "closeTrayMenu"),
     quit: () => callResult(APP_CALL, "quit"),
     setTitleBarOverlay: (colors) => {

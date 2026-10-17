@@ -156,6 +156,7 @@ export interface ProfileMetadataPatch {
 }
 
 export interface PriorityPanelState {
+  reconciled?: boolean;
   settings: import("./priority").PrioritySettings;
   revision: string;
   profileId: string | null;
@@ -455,9 +456,14 @@ export interface TaildropBridge {
 }
 
 export interface AppBridge {
+  listFonts(): Promise<Array<{ id: string; name: string }>>;
+  importFont(): Promise<{ id: string; name: string } | null>;
+  readFont(id: string): Promise<Uint8Array>;
+  selectFont(id: string): Promise<void>;
+  openDataDirectory(): Promise<void>;
   version(): Promise<string>;
   shareFile(fileName: string, data: Uint8Array): Promise<void>;
-  showMainWindow(): Promise<void>;
+  showMainWindow(route?: string): Promise<void>;
   closeTrayMenu(): Promise<void>;
   quit(): Promise<void>;
   setTitleBarOverlay(colors: TitleBarOverlayColors): void;
