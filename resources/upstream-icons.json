@@ -1,0 +1,14 @@
+{
+  "repository": "SagerNet/sing-box-for-desktop",
+  "commit": "32f915ba595601dbc2dd346c33fe9fedd3e72979",
+  "files": {
+    "resources/icon.ico": "266f51ba92df80f1878d71a91ea50ada7fc833576045cf5cec4e6887e019c482",
+    "resources/tray.ico": "67c80655f1b60aef41e2449cd1b2c9ed1deecadd97f2a047fa0ae25c892190e4",
+    "resources/tray.png": "b479ea23fa09f852d88a103112e15271d638f1173038213ee6c2f16040198d13",
+    "resources/tray@2x.png": "a70198ec36ea35e77e6dd5b342201a0dcd8144022daa7db5db7f038d6af0dbc6",
+    "resources/trayTemplate.png": "6737bf951f8473c24549a4b0e6be1ae8d9f62a5cf1059af4270af63210d922d6",
+    "resources/trayTemplate@2x.png": "97a17f328b6e092265f718611621720d65ccb9cfb8725e8cc7ab82fd88ecb37f",
+    "resources/icons/512x512.png": "1a9ce369f541a0c406cfeb3b0b6639dc793ddbe72b651fea9e23d7536aac4c9c",
+    "resources/icons/1024x1024.png": "f9e2bc59900854b242ed80277af6bd9dfbd9e05a723077e1963a34ad723e21f1"
+  }
+}

@@ -27,8 +27,10 @@ loopback quality and actual system-proxy ownership are evaluated separately.
 A disabled switch with the expected endpoint is confirmed twice before one
 reassertion; foreign endpoints or PAC settings are never reclaimed.
 
-Application artwork is generated from the icon shipped in the adjacent
-official sing-box core checkout. The product name, application identity, and
+Application and tray artwork reuse unchanged icon files from the official
+desktop project. `resources/upstream-icons.json` records the upstream commit
+and SHA-256 values; `pnpm icons` verifies these assets without redrawing them.
+The product name, application identity, and
 update channel remain MXH Route, and this is still an unofficial personal
 distribution.
 
