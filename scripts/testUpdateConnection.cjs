@@ -145,15 +145,18 @@ app.whenReady().then(async () => {
   const tlsTarget = `https://127.0.0.1:${tlsTargetPort}`;
   const defaultProxyBefore = await session.defaultSession.resolveProxy(target);
   for (const proxy of ["", `http://127.0.0.1:${httpPort}`, `https://127.0.0.1:${httpsPort}`, `socks5://127.0.0.1:${socksPort}`]) {
+    const kind = proxy === "" ? null : { "http:": "httpProxy", "https:": "httpsProxy", "socks5:": "socksProxy" }[new URL(proxy).protocol];
+    const proxyHitsBefore = kind === null ? 0 : hits[kind];
     await network.run(proxy, async (fetchUpdate) => {
       const request = (url) => fetchUpdate(url, { signal: AbortSignal.timeout(10000) });
       assert.deepEqual(await (await request(`${target}/releases`)).json(), [{ tag_name: "test" }]);
       assert.deepEqual(Buffer.from(await (await request(`${target}/redirect`)).arrayBuffer()), body);
       assert.deepEqual(Buffer.from(await (await request(`${tlsTarget}/redirect`)).arrayBuffer()), body);
     });
+    // HTTP keep-alive reuses SOCKS tunnels, so count the two target connections.
+    if (kind !== null) assert.ok(hits[kind] - proxyHitsBefore >= 2, JSON.stringify(hits));
     console.log(`PASS: ${proxy === "" ? "direct" : new URL(proxy).protocol} release query, redirects and streamed HTTP(S) download`);
   }
-  for (const kind of ["httpProxy", "httpsProxy", "socksProxy"]) assert.ok(hits[kind] >= 3, kind);
   await new Promise((resolve) => httpProxy.close(resolve));
   const beforeFailure = hits.target;
   await assert.rejects(network.run(`http://127.0.0.1:${httpPort}`, (fetchUpdate) => fetchUpdate(`${target}/releases`, { signal: AbortSignal.timeout(10000) })));
