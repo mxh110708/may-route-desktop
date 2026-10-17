@@ -75,6 +75,11 @@ CI is intentionally test-only and receives no signing material. Windows
 installers are built locally with `scripts/build-custom-release.ps1`; the code
 signing certificate and password stay outside this repository. Never commit a
 proxy profile, VPS archive, credential, token, private key, or signing file.
+Upload release artifacts directly from the machine that built them. Do not
+relay locally built installers through BERO or another host for publication.
+Synchronize committed source through the personal GitHub remotes with normal
+push, fetch and fast-forward operations; build artifacts and signing material
+are not a source-synchronization mechanism.
 When dependency downloads require a local proxy, pass its URL through the
 script's optional `-Proxy` parameter; the value is process-local and is not
 stored in the repository.
