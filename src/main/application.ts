@@ -4,6 +4,7 @@ import { APP_CALL } from "../shared/ipc";
 import type { ProfilesResult } from "../shared/ipc";
 import { shareFile } from "./sharing";
 import { importInterfaceFont, listInterfaceFonts, readInterfaceFont, selectInterfaceFont } from "./interfaceFonts";
+import { resizeTrayMenu } from "./trayMenu";
 
 export function registerApplication(showMainWindow: (route?: string) => void) {
   ipcMain.handle(
@@ -30,6 +31,9 @@ export function registerApplication(showMainWindow: (route?: string) => void) {
             if (error) throw new Error(error);
             return { ok: true, value: undefined };
           }
+          case "resizeTrayMenu":
+            resizeTrayMenu(event.sender, arguments_[0]);
+            return { ok: true, value: undefined };
           case "shareFile": {
             const window = BrowserWindow.fromWebContents(event.sender);
             if (window === null) {

@@ -344,6 +344,7 @@ const bridge: DesktopBridge = {
     shareFile: (fileName, data) => callResult(APP_CALL, "shareFile", fileName, data),
     showMainWindow: (route) => callResult(APP_CALL, "showMainWindow", route),
     closeTrayMenu: () => callResult(APP_CALL, "closeTrayMenu"),
+    resizeTrayMenu: (size) => callResult(APP_CALL, "resizeTrayMenu", size),
     quit: () => callResult(APP_CALL, "quit"),
     setTitleBarOverlay: (colors) => {
       ipcRenderer.send(APP_TITLE_BAR_OVERLAY, colors);

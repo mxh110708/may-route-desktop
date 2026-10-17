@@ -109,7 +109,7 @@ test("the custom package does not claim official profile associations or update 
   const dashboardSettings = source("dashboard/src/views/SettingsView.tsx");
   const dashboardTaildrop = source("dashboard/src/views/TaildropView.tsx");
   assert.ok(dashboardApp.includes("className={styles.mobileTopbarBrand}>MXH Route</div>"));
-  assert.ok(dashboardTray.includes('page === "home" ? "MXH Route"'));
+  assert.ok(dashboardTray.includes('role="menu" aria-label="MXH Route"'));
   assert.match(dashboardSettings, /github\.com\/mxh110708\/mxh-route-desktop/u);
   assert.match(dashboardSettings, /github\.com\/mxh110708\/mxh-route-dashboard/u);
   assert.match(dashboardTaildrop, /The MXH Route service is not running/u);

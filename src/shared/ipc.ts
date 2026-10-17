@@ -465,6 +465,7 @@ export interface AppBridge {
   shareFile(fileName: string, data: Uint8Array): Promise<void>;
   showMainWindow(route?: string): Promise<void>;
   closeTrayMenu(): Promise<void>;
+  resizeTrayMenu(size: { width: number; height: number }): Promise<void>;
   quit(): Promise<void>;
   setTitleBarOverlay(colors: TitleBarOverlayColors): void;
   onDeepLinkImport(listener: (request: DeepLinkImport) => void): () => void;

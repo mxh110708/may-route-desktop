@@ -262,6 +262,7 @@ export function createDesktopHost(): DesktopHost {
       closeTrayMenu: () => {
         void bridge.app.closeTrayMenu();
       },
+      resizeTrayMenu: (size) => bridge.app.resizeTrayMenu(size),
       quit: () => {
         void bridge.app.quit();
       },

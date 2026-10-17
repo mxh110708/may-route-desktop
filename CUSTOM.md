@@ -42,12 +42,18 @@ optional font with its complete OFL license. TTF/OTF imports are limited to
 data directory; fonts are never installed into Windows. Main and tray windows
 share the saved choice. An unavailable font falls back to the original font.
 
-The Windows tray uses a compact, scrollable panel with in-panel group/profile
-navigation. Its entire window is placed outside the triggering icon using the
+The Windows tray uses a compact menu with ten root actions and no root scrolling.
+The root is 244 by 330 DIPs with ordinary 28-DIP menu rows. Routing choices,
+groups, profiles and less frequent actions use nested pages; each page reports
+its natural content size, including errors and padding, before it is shown.
+Long lists use the available display space, with search and scrolling when they
+exceed it. The entire window is placed outside the triggering icon using the
 display's DIP work area, including overflow icons and secondary displays.
 System Proxy/TUN and routing controls reuse the main window's existing backend
 operations. Closing the panel hides its window instead of leaving an invisible
 interactive surface over the taskbar.
+Only the tray renderer may submit bounded size requests. Pre-show layout remains
+active while the hidden tray window is being prepared.
 
 Priority failover reconciles saved order against the selected configuration on
 both the editor and runtime paths. Surviving custom members keep their order;

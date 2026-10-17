@@ -36,3 +36,15 @@ test("overflow popup never covers the clicked icon at any grid location", () => 
     assert.equal(overlaps(trayMenuPlacement(icon, work), icon), false);
   }
 });
+test("measured compact root and submenus retain their full size on a small work area", () => {
+  const work = { x: -640, y: -80, width: 640, height: 400 };
+  const anchor = { x: -180, y: 150, width: 24, height: 24 };
+  for (const size of [{ width: 244, height: 330 }, { width: 320, height: 380 }, { width: 244, height: 220 }]) {
+    const menu = trayMenuPlacement(anchor, work, size);
+    assert.equal(menu.width, size.width);
+    assert.equal(menu.height, size.height);
+    assert.equal(overlaps(menu, anchor), false);
+    assert.ok(menu.x >= work.x && menu.x + menu.width <= work.x + work.width);
+    assert.ok(menu.y >= work.y && menu.y + menu.height <= work.y + work.height);
+  }
+});
