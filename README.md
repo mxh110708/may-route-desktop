@@ -20,6 +20,10 @@ security boundaries, and release maintenance.
 The [1.14.2 audit](docs/AUDIT-1.14.2.zh-CN.md) classifies retained customizations,
 recovery boundaries, and remaining validation limits.
 
+## 深浅色外观
+
+界面参考 MXH VPS Deploy：深色采用蓝灰分层与浅蓝强调色，浅色采用蓝色侧栏与白色内容区。卡片、输入框、按钮、菜单和对话框使用统一的颜色角色，保留跟随系统、预设及自定义主题色。实现与验收范围见 [主题重构说明](docs/THEME-REFRESH.zh-CN.md)。
+
 ## 本地配置与端口设置
 
 - “从文件导入”记住上次选择的文件夹；文件夹不可用时使用系统默认位置。
