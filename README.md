@@ -33,6 +33,8 @@ recovery boundaries, and remaining validation limits.
 
 详见 [端口设置说明](docs/PROXY-PORTS.zh-CN.md) 和 [延迟检测说明](docs/LATENCY-MEASUREMENT.zh-CN.md)。
 
+“设置 → 应用 → 更新连接”可单独设置检查更新和安装包下载使用的代理，留空直连。支持无需认证的 HTTP、HTTPS、SOCKS5，不改变当前系统代理或 TUN。详见 [更新连接说明](docs/UPDATE-CONNECTION.zh-CN.md)。
+
 ## 图形化故障切换设置与日志保存
 
 - 首次使用需明确选择由实际代理节点组成的入口组；不按组名或服务商名称硬编码。可修改本地 `priority-failover.json` 指定顺序、调整阈值或关闭功能。修改后重载代理即可，无需重新发包。

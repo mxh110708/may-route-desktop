@@ -6,7 +6,7 @@ import { Readable } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import type { ReadableStream as WebReadableStream } from "node:stream/web";
 
-import { app, BrowserWindow, ipcMain } from "electron";
+import { app, BrowserWindow, ipcMain, session } from "electron";
 import { compare, gt, prerelease, valid } from "semver";
 
 import { InstallUpdateResult } from "../shared/gen/experimental/boxdd/desktop_service_pb";
@@ -21,6 +21,7 @@ import type {
 import { applicationCacheDirectory } from "./appCache";
 import { parseBooleanPreference, Preference } from "./database";
 import { desktopService } from "./daemon";
+import { normalizeUpdateProxyAddress, UpdateConnection, type UpdateFetch } from "./updateConnection";
 import {
   isChannelVersion,
   isTrustedDownloadURL,
@@ -80,6 +81,10 @@ const lastShownUpdateVersionPreference = new Preference(
   parseString,
 );
 const githubTokenPreference = new Preference("github_token", "", parseString);
+const updateProxyPreference = new Preference("update_proxy", "", normalizeUpdateProxyAddress);
+const updateConnection = new UpdateConnection(() =>
+  session.fromPartition("mxh-route-updates", { cache: false }),
+);
 
 function currentTrack(): UpdateTrack {
   if (__CUSTOM_BUILD__) {
@@ -103,6 +108,7 @@ function updatesState(): UpdatesState {
     trackSelectable: !__CUSTOM_BUILD__,
     track: currentTrack(),
     checkUpdateEnabled: checkUpdateEnabledPreference.get(),
+    proxyAddress: updateProxyPreference.get(),
     prompted: updateCheckPromptedPreference.get(),
     info: runtime.info,
     checking: runtime.checking,
@@ -202,7 +208,11 @@ interface GitHubRelease {
   assets: GitHubAsset[];
 }
 
-async function fetchReleases(track: UpdateTrack, githubToken: string): Promise<GitHubRelease[]> {
+async function fetchReleases(
+  track: UpdateTrack,
+  githubToken: string,
+  fetchUpdate: UpdateFetch,
+): Promise<GitHubRelease[]> {
   const releases: GitHubRelease[] = [];
   const headers = new Headers({
     "Accept": "application/vnd.github+json",
@@ -214,7 +224,7 @@ async function fetchReleases(track: UpdateTrack, githubToken: string): Promise<G
   }
   let page = 1;
   for (;;) {
-    const response = await fetch(
+    const response = await fetchUpdate(
       `${RELEASES_URL}?per_page=${RELEASES_PER_PAGE}&page=${page}`,
       {
         headers,
@@ -248,7 +258,9 @@ async function checkForUpdate(): Promise<AppUpdateInfo | null> {
   broadcastState();
   try {
     const track = currentTrack();
-    const releases = await fetchReleases(track, githubTokenPreference.get());
+    const releases = await updateConnection.run(updateProxyPreference.get(), (fetchUpdate) =>
+      fetchReleases(track, githubTokenPreference.get(), fetchUpdate),
+    );
     if (currentTrack() !== track) {
       return runtime.info;
     }
@@ -324,35 +336,37 @@ async function downloadUpdate(info: AppUpdateInfo): Promise<string> {
   }
   await rm(destination, { force: true });
 
-  const response = await fetch(info.downloadURL, {
-    headers: { "User-Agent": userAgent() },
-  });
-  if (!response.ok || response.body === null) {
-    throw new Error(`download update: HTTP ${response.status}`);
-  }
-  const totalBytes = Number(response.headers.get("content-length") ?? "") || info.fileSize;
-  const temporary = `${destination}.download`;
-  let written = 0;
-  await pipeline(
-    Readable.fromWeb(response.body as unknown as WebReadableStream),
-    async function* (source: AsyncIterable<Buffer>) {
-      for await (const chunk of source) {
-        written += chunk.length;
-        if (totalBytes > 0) {
-          reportDownloadProgress(Math.min(written / totalBytes, 1));
+  return updateConnection.run(updateProxyPreference.get(), async (fetchUpdate) => {
+    const response = await fetchUpdate(info.downloadURL, {
+      headers: { "User-Agent": userAgent() },
+    });
+    if (!response.ok || response.body === null) {
+      throw new Error(`download update: HTTP ${response.status}`);
+    }
+    const totalBytes = Number(response.headers.get("content-length") ?? "") || info.fileSize;
+    const temporary = `${destination}.download`;
+    let written = 0;
+    await pipeline(
+      Readable.fromWeb(response.body as unknown as WebReadableStream),
+      async function* (source: AsyncIterable<Buffer>) {
+        for await (const chunk of source) {
+          written += chunk.length;
+          if (totalBytes > 0) {
+            reportDownloadProgress(Math.min(written / totalBytes, 1));
+          }
+          yield chunk;
         }
-        yield chunk;
-      }
-    },
-    createWriteStream(temporary),
-  );
-  if (info.fileSize > 0 && written !== info.fileSize) {
-    await rm(temporary, { force: true });
-    throw new Error(`downloaded update is truncated: ${written} of ${info.fileSize} bytes`);
-  }
-  await rename(temporary, destination);
-  reportDownloadProgress(1);
-  return destination;
+      },
+      createWriteStream(temporary),
+    );
+    if (info.fileSize > 0 && written !== info.fileSize) {
+      await rm(temporary, { force: true });
+      throw new Error(`downloaded update is truncated: ${written} of ${info.fileSize} bytes`);
+    }
+    await rename(temporary, destination);
+    reportDownloadProgress(1);
+    return destination;
+  });
 }
 
 function launchUpdateInstallerElevated(installerPath: string): Promise<boolean> {
@@ -499,6 +513,16 @@ const handlers: Record<string, (...callArguments: never[]) => Promise<unknown>> 
     }
     const token = parseString(value).trim();
     githubTokenPreference.set(token === "" ? null : token);
+  },
+
+  async setProxyAddress(value: string): Promise<string> {
+    if (runtime.checking || runtime.downloading || runtime.installing) {
+      throw new Error("Update operation in progress");
+    }
+    const proxy = normalizeUpdateProxyAddress(value);
+    updateProxyPreference.set(proxy === "" ? null : proxy);
+    broadcastState();
+    return proxy;
   },
 
   downloadAndInstall,

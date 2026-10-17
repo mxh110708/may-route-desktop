@@ -373,6 +373,7 @@ export interface UpdatesState {
   trackSelectable: boolean;
   track: UpdateTrack;
   checkUpdateEnabled: boolean;
+  proxyAddress: string;
   prompted: boolean;
   info: AppUpdateInfo | null;
   checking: boolean;
@@ -386,6 +387,7 @@ export interface UpdatesBridge {
   check(): Promise<AppUpdateInfo | null>;
   getGitHubToken(): Promise<string>;
   setGitHubToken(value: string): Promise<void>;
+  setProxyAddress(value: string): Promise<string>;
   downloadAndInstall(): Promise<UpdateInstallResult>;
   installWithElevation(): Promise<boolean>;
   setTrack(track: UpdateTrack): Promise<void>;
