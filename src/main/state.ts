@@ -23,6 +23,7 @@ class DaemonState extends EventEmitter {
   connection: DaemonConnectionState = { phase: "connecting" };
   status: ServiceStatus_Type | null = null;
   groups: Group[] = [];
+  routing: { modeList: string[]; currentMode: string } = { modeList: [], currentMode: "" };
 
   private started = false;
   private wakeRetry: (() => void) | null = null;
@@ -130,19 +131,32 @@ class DaemonState extends EventEmitter {
       }
       const session = new AbortController();
       void this.loopGroups(session.signal);
+      let routingSession: AbortController | null = null;
+      session.signal.addEventListener("abort", () => routingSession?.abort(), { once: true });
       this.emit("session", session.signal);
       try {
         for await (const message of startedService!.subscribeServiceStatus(
           {},
           { signal: session.signal },
         )) {
-          this.status = message.status ?? ServiceStatus_Type.IDLE;
+          const nextStatus = message.status ?? ServiceStatus_Type.IDLE;
+          if (process.platform === "win32" && nextStatus !== this.status) {
+            routingSession?.abort();
+            routingSession = null;
+            this.routing = { modeList: [], currentMode: "" };
+            if (nextStatus === ServiceStatus_Type.STARTED) {
+              routingSession = new AbortController();
+              void this.loopRouting(routingSession.signal);
+            }
+          }
+          this.status = nextStatus;
           this.emit("change");
         }
       } catch {}
       session.abort();
       this.status = null;
       this.groups = [];
+      this.routing = { modeList: [], currentMode: "" };
       this.emit("change");
       await sleep(SESSION_RESTART_DELAY);
     }
@@ -163,6 +177,26 @@ class DaemonState extends EventEmitter {
       if (!signal.aborted) {
         await sleep(RECONNECT_DELAY);
       }
+    }
+  }
+
+  private async loopRouting(signal: AbortSignal): Promise<void> {
+    while (!signal.aborted) {
+      try {
+        const status = await startedService!.getClashModeStatus({}, { signal, timeoutMs: HANDSHAKE_TIMEOUT });
+        if (signal.aborted) return;
+        this.routing = { modeList: status.modeList, currentMode: status.currentMode };
+        this.emit("change");
+        for await (const message of startedService!.subscribeClashMode({}, { signal })) {
+          if (signal.aborted) return;
+          this.routing = { ...this.routing, currentMode: message.mode };
+          this.emit("change");
+        }
+      } catch {}
+      if (signal.aborted) return;
+      this.routing = { modeList: [], currentMode: "" };
+      this.emit("change");
+      await sleep(RECONNECT_DELAY);
     }
   }
 }

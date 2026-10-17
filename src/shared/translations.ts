@@ -5,6 +5,23 @@ export type DesktopLanguage = (typeof DESKTOP_LANGUAGES)[number];
 type DesktopMessage = Record<Exclude<DesktopLanguage, "en">, string>;
 
 export const DESKTOP_TRANSLATIONS = {
+  "Start Service": { "zh-Hans": "启动服务", "zh-Hant": "啟動服務", "fa": "شروع سرویس", "ru": "Запустить службу" },
+  "Stop Service": { "zh-Hans": "停止服务", "zh-Hant": "停止服務", "fa": "توقف سرویس", "ru": "Остановить службу" },
+  "Service starting...": { "zh-Hans": "服务正在启动…", "zh-Hant": "服務正在啟動…", "fa": "در حال شروع سرویس…", "ru": "Запуск службы…" },
+  "Service stopping...": { "zh-Hans": "服务正在停止…", "zh-Hant": "服務正在停止…", "fa": "در حال توقف سرویس…", "ru": "Остановка службы…" },
+  "Routing Mode": { "zh-Hans": "路由模式", "zh-Hant": "路由模式", "fa": "حالت مسیریابی", "ru": "Режим маршрутизации" },
+  "Rule": { "zh-Hans": "规则", "zh-Hant": "規則", "fa": "قانون", "ru": "Правила" },
+  "Global": { "zh-Hans": "全局", "zh-Hant": "全域", "fa": "سراسری", "ru": "Глобально" },
+  "Direct": { "zh-Hans": "直连", "zh-Hant": "直連", "fa": "مستقیم", "ru": "Напрямую" },
+  "System Proxy": { "zh-Hans": "系统代理", "zh-Hant": "系統代理", "fa": "پراکسی سیستم", "ru": "Системный прокси" },
+  "TUN Mode": { "zh-Hans": "TUN 模式", "zh-Hant": "TUN 模式", "fa": "حالت TUN", "ru": "Режим TUN" },
+  "Reload profile": { "zh-Hans": "重新加载当前配置", "zh-Hant": "重新載入目前設定", "fa": "بارگذاری مجدد", "ru": "Перезагрузить профиль" },
+  "More": { "zh-Hans": "更多", "zh-Hant": "更多", "fa": "بیشتر", "ru": "Ещё" },
+  "Connections": { "zh-Hans": "连接", "zh-Hant": "連接", "fa": "اتصال‌ها", "ru": "Подключения" },
+  "Logs": { "zh-Hans": "日志", "zh-Hant": "日誌", "fa": "گزارش‌ها", "ru": "Журналы" },
+  "Settings": { "zh-Hans": "设置", "zh-Hant": "設定", "fa": "تنظیمات", "ru": "Настройки" },
+  "Open data directory": { "zh-Hans": "打开数据目录", "zh-Hant": "開啟資料目錄", "fa": "باز کردن پوشه داده", "ru": "Открыть папку данных" },
+  "Unavailable": { "zh-Hans": "暂不可用", "zh-Hant": "暫不可用", "fa": "در دسترس نیست", "ru": "Недоступно" },
   "Start": {
     "zh-Hans": "启动",
     "zh-Hant": "啟動",

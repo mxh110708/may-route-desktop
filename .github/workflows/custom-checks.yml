@@ -46,6 +46,8 @@ jobs:
       - run: pnpm test:public-rules
       - run: pnpm test:interface-fonts
       - run: pnpm test:tray-placement
+      - run: pnpm test:tray-activation
+      - run: pnpm test:tray-menu
       - run: pnpm test:system-proxy-recovery
       - run: pnpm test:installer-preflight
       - run: pnpm typecheck

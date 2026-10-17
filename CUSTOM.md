@@ -39,21 +39,23 @@ distribution.
 The original interface font remains the default. LXGW WenKai is bundled as an
 optional font with its complete OFL license. TTF/OTF imports are limited to
 32 MiB, validated and copied into `interface-fonts` inside the application user
-data directory; fonts are never installed into Windows. Main and tray windows
-share the saved choice. An unavailable font falls back to the original font.
+data directory; fonts are never installed into Windows. The main interface and
+renderer-based tray share the saved choice. An unavailable font falls back to
+the original font. Windows native menus use the system menu font.
 
-The Windows tray uses a compact menu with ten root actions and no root scrolling.
-The root is 244 by 330 DIPs with ordinary 28-DIP menu rows. Routing choices,
-groups, profiles and less frequent actions use nested pages; each page reports
-its natural content size, including errors and padding, before it is shown.
-Long lists use the available display space, with search and scrolling when they
-exceed it. The entire window is placed outside the triggering icon using the
-display's DIP work area, including overflow icons and secondary displays.
-System Proxy/TUN and routing controls reuse the main window's existing backend
-operations. Closing the panel hides its window instead of leaving an invisible
-interactive surface over the taskbar.
-Only the tray renderer may submit bounded size requests. Pre-show layout remains
-active while the hidden tray window is being prepared.
+On Windows, one left click dismisses the tray menu and shows or restores the
+main window. Right click manually opens a native Electron Menu with ten root
+actions. Native submenus handle hover expansion, keeping parents visible,
+screen-edge placement and keyboard traversal. No additional double-click handler
+repeats primary activation. The menu follows the application theme while using
+the platform menu font. It does not preload a renderer window on Windows.
+System Proxy/TUN, routing, profiles, updates and node selection reuse the main
+window's existing backend operations. Routing status is cached from the daemon
+stream so opening the menu does not wait for an RPC. Profile and connection
+changes dismiss the old popup; each new popup builds from current state. Busy,
+transitioning and disconnected states disable unavailable mutations.
+The renderer-based tray remains available for Linux, with bounded resize IPC
+restricted to its own window.
 
 Priority failover reconciles saved order against the selected configuration on
 both the editor and runtime paths. Surviving custom members keep their order;

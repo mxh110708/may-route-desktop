@@ -982,7 +982,7 @@ function intervalOrDefault(profile: ProfileMetadata): number {
   return DEFAULT_UPDATE_INTERVAL_MINUTES;
 }
 
-function updateRemoteProfile(id: string): Promise<void> {
+export function updateRemoteProfile(id: string): Promise<void> {
   return runProfileOperation(id, async () => {
     const profile = findProfile(id);
     if (profile.type !== "remote" || !profile.remoteUrl) {
@@ -1047,7 +1047,7 @@ export async function stopSelectedService(): Promise<void> {
   });
 }
 
-async function setCaptureMode(modeValue: unknown): Promise<void> {
+export async function setCaptureMode(modeValue: unknown): Promise<void> {
   const mode = parseCaptureMode(modeValue);
   const previousMode = captureModePreference.get();
   if (mode === previousMode) {

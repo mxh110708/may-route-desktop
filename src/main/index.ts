@@ -511,7 +511,10 @@ if (!singleInstanceLock) {
     if (!startInTray) {
       createWindow();
     }
-    initializeTray(showWindow);
+    initializeTray((route) => {
+      showWindow();
+      if (route) sendWhenLoaded(APP_NAVIGATE, route);
+    });
     updateTrayVisibility(trayEnabled());
     if (testScriptPath) {
       const workArea = screen.getPrimaryDisplay().workArea;

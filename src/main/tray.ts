@@ -1,4 +1,4 @@
-import { Menu, Tray, app, nativeImage, screen } from "electron";
+import { Menu, Tray, app, dialog, nativeImage, nativeTheme, screen, shell } from "electron";
 import type { MenuItemConstructorOptions, NativeImage, Rectangle } from "electron";
 
 import { ServiceStatus_Type } from "../shared/gen/daemon/started_service_pb";
@@ -7,18 +7,83 @@ import type { DesktopMessageKey } from "../shared/translations";
 import { startedService } from "./daemon";
 import { preferredLocale } from "./locale";
 import { onPreferenceChanged } from "./preferences";
-import { onProfilesChanged, profilesState, selectProfile, startSelectedProfile, stopSelectedService } from "./profiles";
+import { onProfilesChanged, profilesState, selectProfile, setCaptureMode, startSelectedProfile, stopSelectedService, updateRemoteProfile } from "./profiles";
+import { preferenceSnapshot } from "./database";
 import { resourcePath } from "./resources";
 import { daemonState } from "./state";
 import { destroyTrayMenuWindow, hideTrayMenu, prepareTrayMenuWindow, showTrayMenu } from "./trayMenu";
 import { X11Tray } from "./x11Tray";
+import { bindWindowsTrayActivation } from "./windowsTrayActivation";
+import { buildWindowsTrayMenu } from "./windowsTrayMenu";
+import { trayMenuPlacement } from "./trayPlacement";
 
 const DOUBLE_ACTIVATE_INTERVAL_MILLISECONDS = 500;
 const APPLICATION_LABEL = __CUSTOM_BUILD__ ? "MXH Route" : "sing-box";
 
 let tray: Tray | null = null;
 let x11Tray: X11Tray | null = null;
-let openWindow: () => void = () => {};
+let openWindow: (route?: string) => void = () => {};
+let windowsMenu: Menu | null = null;
+let windowsActionRunning = false;
+
+function closeWindowsMenu() {
+  windowsMenu?.closePopup();
+  if (process.platform === "win32" && tray && !tray.isDestroyed()) tray.closeContextMenu();
+  windowsMenu = null;
+}
+
+async function runWindowsAction(action: () => Promise<unknown>) {
+  if (windowsActionRunning) return;
+  windowsActionRunning = true;
+  try { await action(); }
+  catch (error) {
+    console.error("tray action:", error);
+    await dialog.showMessageBox({ type: "error", title: APPLICATION_LABEL, message: error instanceof Error ? error.message : String(error), buttons: ["OK"], noLink: true }).catch(console.error);
+  } finally { windowsActionRunning = false; }
+}
+
+function requireStartedService() {
+  if (!startedService || daemonState.connection.phase !== "connected" || daemonState.status !== ServiceStatus_Type.STARTED) throw new Error("Service is not running.");
+  return startedService;
+}
+
+function showWindowsMenu(bounds: Rectangle) {
+  if (!tray) return;
+  closeWindowsMenu();
+  const status = daemonState.status;
+  const state = profilesState();
+  const menu = Menu.buildFromTemplate(buildWindowsTrayMenu({
+    ...state, connected: daemonState.connection.phase === "connected", busy: windowsActionRunning,
+    status: status === ServiceStatus_Type.STARTED ? "started" : status === ServiceStatus_Type.STARTING ? "starting" : status === ServiceStatus_Type.STOPPING ? "stopping" : "stopped",
+    groups: daemonState.groups, routing: daemonState.routing,
+  }, {
+    openMain: (route) => openWindow(route),
+    start: () => { void runWindowsAction(startSelectedProfile); },
+    stop: () => { void runWindowsAction(stopSelectedService); },
+    capture: (mode) => { void runWindowsAction(() => setCaptureMode(mode)); },
+    routing: (mode) => { void runWindowsAction(() => requireStartedService().setClashMode({ mode })); },
+    selectProfile: (id) => { void runWindowsAction(() => selectProfile(id)); },
+    updateProfile: (id) => { void runWindowsAction(() => updateRemoteProfile(id)); },
+    selectOutbound: (group, node) => { void runWindowsAction(() => requireStartedService().selectOutbound({ groupTag: group, outboundTag: node })); },
+    urlTest: (group) => { void runWindowsAction(() => requireStartedService().uRLTest({ outboundTag: group })); },
+    urlTestAll: () => { void runWindowsAction(() => Promise.all(daemonState.groups.filter((group) => group.selectable).map((group) => requireStartedService().uRLTest({ outboundTag: group.tag })))); },
+    closeConnections: () => { void runWindowsAction(() => requireStartedService().closeAllConnections({})); },
+    openDataDirectory: () => { void runWindowsAction(async () => { const error = await shell.openPath(app.getPath("userData")); if (error) throw new Error(error); }); },
+    quit: () => app.quit(),
+  }, translate));
+  windowsMenu = menu;
+  menu.once("menu-will-close", () => { if (windowsMenu === menu) windowsMenu = null; });
+  // A conservative native-menu footprint keeps the initial popup outside the
+  // triggering icon. Native submenus handle their own screen-edge placement.
+  const height = menu.items.reduce((sum, item) => sum + (item.type === "separator" ? 8 : 28), 12);
+  const position = trayMenuPlacement(bounds, screen.getDisplayMatching(bounds).workArea, { width: 244, height });
+  tray.popUpContextMenu(menu, { x: position.x, y: position.y });
+}
+
+function syncWindowsMenuTheme() {
+  const theme = preferenceSnapshot(["theme"]).theme;
+  nativeTheme.themeSource = theme === "dark" || theme === "light" ? theme : "system";
+}
 
 function cursorAnchor(): Rectangle {
   const cursor = screen.getCursorScreenPoint();
@@ -145,17 +210,32 @@ function buildTrayTemplate(): MenuItemConstructorOptions[] {
 }
 
 export function rebuildTrayMenu() {
-  // Electron's Windows context menu suppresses the tray click events used by
-  // the custom menu window.
+  // Keep the Windows menu manual: attaching it with setContextMenu would
+  // suppress the independent primary-click activation.
   if (tray === null || process.platform === "win32") {
     return;
   }
   tray.setContextMenu(Menu.buildFromTemplate(buildTrayTemplate()));
 }
 
-export function initializeTray(open: () => void) {
+export function initializeTray(open: (route?: string) => void) {
   openWindow = open;
-  if (process.platform !== "win32") {
+  if (process.platform === "win32") {
+    syncWindowsMenuTheme();
+    onProfilesChanged(closeWindowsMenu);
+    daemonState.on("connection", closeWindowsMenu);
+    let previousStatus = daemonState.status;
+    daemonState.on("change", () => {
+      if (previousStatus !== daemonState.status) {
+        previousStatus = daemonState.status;
+        closeWindowsMenu();
+      }
+    });
+    onPreferenceChanged((name) => {
+      if (name === "theme") syncWindowsMenuTheme();
+      if (name === "theme" || name === "language") closeWindowsMenu();
+    });
+  } else {
     daemonState.on("change", rebuildTrayMenu);
     onProfilesChanged(rebuildTrayMenu);
     onPreferenceChanged((name) => {
@@ -180,15 +260,10 @@ function createElectronTray() {
   tray = new Tray(icon);
   tray.setToolTip(APPLICATION_LABEL);
   if (process.platform === "win32") {
-    prepareTrayMenuWindow(tray.getBounds());
-    const popMenu = (bounds: Rectangle) => {
-      void showTrayMenu(bounds);
-    };
-    tray.on("click", (_event, bounds) => popMenu(bounds));
-    tray.on("right-click", (_event, bounds) => popMenu(bounds));
-    tray.on("double-click", () => {
-      hideTrayMenu();
-      openWindow();
+    bindWindowsTrayActivation(tray, {
+      hideMenu: () => { closeWindowsMenu(); hideTrayMenu(); },
+      openMainWindow: () => openWindow(),
+      showMenu: showWindowsMenu,
     });
     return;
   }
@@ -197,6 +272,7 @@ function createElectronTray() {
 
 export function updateTrayVisibility(enabled: boolean) {
   if (!enabled) {
+    closeWindowsMenu();
     tray?.destroy();
     tray = null;
     x11Tray?.destroy();

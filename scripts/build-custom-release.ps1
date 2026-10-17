@@ -98,6 +98,8 @@ try {
     Invoke-Pnpm test:custom-isolation
     Invoke-Pnpm test:interface-fonts
     Invoke-Pnpm test:tray-placement
+    Invoke-Pnpm test:tray-activation
+    Invoke-Pnpm test:tray-menu
     Invoke-Pnpm test:installer-preflight
     Invoke-Pnpm typecheck
     Invoke-Pnpm -Arguments @("-C", "dashboard", "test", "--", "--run")
