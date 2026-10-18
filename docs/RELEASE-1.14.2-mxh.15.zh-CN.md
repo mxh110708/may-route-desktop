@@ -11,4 +11,4 @@
 
 内存和 CPU 的测试条件、结果及边界见 [性能验收记录](https://github.com/mxh110708/mxh-route-desktop/blob/v1.14.2-mxh.15/docs/MEMORY-PERFORMANCE-2026-10-18.zh-CN.md)。安装包沿用现有签名身份，附 SHA-256 校验文件。
 
-源码：[核心](https://github.com/mxh110708/mxh-route-core/commit/4bdadb511d31fff678f264d3d8bea28a17b07048)、[界面](https://github.com/mxh110708/mxh-route-dashboard/commit/79ece355daae4c11730aec130e5d4189ab2f8d0f)、[桌面](https://github.com/mxh110708/mxh-route-desktop/tree/v1.14.2-mxh.15)。
+源码：[核心](https://github.com/mxh110708/mxh-route-core/commit/09fb6465a7ce13e9a39335d3893b4152cbaac458)、[界面](https://github.com/mxh110708/mxh-route-dashboard/commit/79ece355daae4c11730aec130e5d4189ab2f8d0f)、[桌面](https://github.com/mxh110708/mxh-route-desktop/tree/v1.14.2-mxh.15)。
