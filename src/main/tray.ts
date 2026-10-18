@@ -12,7 +12,7 @@ import { preferenceSnapshot } from "./database";
 import { resourcePath } from "./resources";
 import { daemonState } from "./state";
 import { destroyTrayMenuWindow, hideTrayMenu, prepareTrayMenuWindow, showTrayMenu } from "./trayMenu";
-import { X11Tray } from "./x11Tray";
+import type { X11Tray } from "./x11Tray";
 import { bindWindowsTrayActivation } from "./windowsTrayActivation";
 import { buildWindowsTrayMenu } from "./windowsTrayMenu";
 import { trayMenuPlacement } from "./trayPlacement";
@@ -22,6 +22,8 @@ const APPLICATION_LABEL = __CUSTOM_BUILD__ ? "MXH Route" : "sing-box";
 
 let tray: Tray | null = null;
 let x11Tray: X11Tray | null = null;
+let x11TrayPending = false;
+let trayGeneration = 0;
 let openWindow: (route?: string) => void = () => {};
 let windowsMenu: Menu | null = null;
 let windowsActionRunning = false;
@@ -272,6 +274,8 @@ function createElectronTray() {
 
 export function updateTrayVisibility(enabled: boolean) {
   if (!enabled) {
+    trayGeneration++;
+    x11TrayPending = false;
     closeWindowsMenu();
     tray?.destroy();
     tray = null;
@@ -280,7 +284,7 @@ export function updateTrayVisibility(enabled: boolean) {
     destroyTrayMenuWindow();
     return;
   }
-  if (tray !== null || x11Tray !== null) {
+  if (tray !== null || x11Tray !== null || x11TrayPending) {
     return;
   }
   // Electron resolves the ozone platform before the main script runs and
@@ -290,13 +294,21 @@ export function updateTrayVisibility(enabled: boolean) {
     createElectronTray();
     return;
   }
-  prepareTrayMenuWindow(cursorAnchor());
-  const popMenu = (x: number, y: number) => {
-    void showTrayMenu(clickAnchor(x, y));
-  };
-  let lastActivateAt = 0;
-  let currentTray: X11Tray;
+  x11TrayPending = true;
+  void createX11Tray(++trayGeneration);
+}
+
+async function createX11Tray(generation: number): Promise<void> {
+  let currentTray: X11Tray | null = null;
   try {
+    // Loading dbus-next on Windows retains an unused Linux protocol stack.
+    const { X11Tray } = await import("./x11Tray");
+    if (generation !== trayGeneration) return;
+    prepareTrayMenuWindow(cursorAnchor());
+    const popMenu = (x: number, y: number) => {
+      void showTrayMenu(clickAnchor(x, y));
+    };
+    let lastActivateAt = 0;
     currentTray = new X11Tray(popMenu, (x, y) => {
       const now = Date.now();
       if (now - lastActivateAt < DOUBLE_ACTIVATE_INTERVAL_MILLISECONDS) {
@@ -308,21 +320,16 @@ export function updateTrayVisibility(enabled: boolean) {
       lastActivateAt = now;
       popMenu(x, y);
     });
+    x11Tray = currentTray;
+    await currentTray.ready;
   } catch (error: unknown) {
+    if (generation !== trayGeneration) return;
     console.error("failed to create X11 tray:", error);
-    destroyTrayMenuWindow();
-    createElectronTray();
-    return;
-  }
-  x11Tray = currentTray;
-  void currentTray.ready.catch((error: unknown) => {
-    if (x11Tray !== currentTray) {
-      return;
-    }
-    console.error("failed to initialize X11 tray:", error);
-    currentTray.destroy();
+    currentTray?.destroy();
     x11Tray = null;
     destroyTrayMenuWindow();
     createElectronTray();
-  });
+  } finally {
+    if (generation === trayGeneration) x11TrayPending = false;
+  }
 }

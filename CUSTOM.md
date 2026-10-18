@@ -96,6 +96,18 @@ views, current data, normal log limits, selected fonts and drafts are retained.
 See `docs/MEMORY-PERFORMANCE-2026-10-18.zh-CN.md` for the four-state comparison
 and normal-use checks; startup byte counts are not used as RAM savings.
 
+Windows startup does not load the Linux tray's D-Bus implementation. The
+Linux implementation stays bundled and loads only for X11; disabling the tray
+during initialization cancels its pending creation. Settings, advanced tools,
+endpoint pages and reports load locally on first navigation. The production
+bundle audits verify these boundaries, including indirect shared imports.
+Hidden connection-history views continue collecting their bounded history but
+publish no React notifications until visible again. Unused authoritative
+endpoint/outbound caches and completed schema-response promises release their
+references; active sessions and parsed editor schemas remain available.
+See `docs/THIRD-PERFORMANCE-2026-10-18.zh-CN.md` for the Clash Verge source
+comparison, measurement scope and limits of this additional round.
+
 Priority failover reconciles saved order against the selected configuration on
 both the editor and runtime paths. Surviving custom members keep their order;
 new nodes remain available for explicit inclusion. An entirely obsolete order

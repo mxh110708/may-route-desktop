@@ -132,10 +132,8 @@ export function createDesktopHost(): DesktopHost {
         if (configSchemaPromise === null) {
           configSchemaPromise = applicationClient
             .generateConfigSchema({})
-            .then((result) => result.content);
-          configSchemaPromise.catch(() => {
-            configSchemaPromise = null;
-          });
+            .then((result) => result.content)
+            .finally(() => { configSchemaPromise = null; });
         }
         return configSchemaPromise;
       },

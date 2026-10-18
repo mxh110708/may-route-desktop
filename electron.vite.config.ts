@@ -5,7 +5,7 @@ import { resolve } from "node:path";
 import type { Plugin } from "vite";
 
 import { readApplicationVersion } from "./scripts/version";
-import { auditRendererLoading } from "./scripts/rendererLoading";
+import { auditMainLoading, auditRendererLoading } from "./scripts/rendererLoading";
 
 function checkRendererLoading(): Plugin {
   return {
@@ -14,6 +14,16 @@ function checkRendererLoading(): Plugin {
       const chunks = Object.values(bundle).filter(item => item.type === "chunk");
       const result = auditRendererLoading(chunks);
       this.emitFile({ type: "asset", fileName: "renderer-loading.json", source: JSON.stringify(result, null, 2) });
+    },
+  };
+}
+
+function checkMainLoading(): Plugin {
+  return {
+    name: "check-main-loading",
+    generateBundle(_options, bundle) {
+      const chunks = Object.values(bundle).filter(item => item.type === "chunk");
+      this.emitFile({ type: "asset", fileName: "main-loading.json", source: JSON.stringify(auditMainLoading(chunks), null, 2) });
     },
   };
 }
@@ -55,6 +65,7 @@ function contentSecurityPolicy(): Plugin {
 
 export default defineConfig({
   main: {
+    plugins: [checkMainLoading()],
     define: {
       __APP_VERSION__: JSON.stringify(readApplicationVersion()),
       __CUSTOM_BUILD__: "true",
