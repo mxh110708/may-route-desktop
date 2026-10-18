@@ -41,6 +41,7 @@ import { serviceStartOptions } from "./settings";
 import { resourcePath } from "./resources";
 import { userAgent } from "./userAgent";
 import { applicationService } from "./worker";
+import { backgroundIdleGate } from "./backgroundIdle";
 import { daemonState } from "./state";
 import { HealthLog } from "./healthLog";
 import { CoreLogArchive } from "./coreLogArchive";
@@ -541,19 +542,21 @@ function startCoreArchive(): void {
   });
   void (async () => {
     while (!signal.aborted) {
+      if (!await backgroundIdleGate.wait(signal)) return;
+      const round = AbortSignal.any([signal, backgroundIdleGate.signal]);
       try {
         if (startedService === null) return;
         await coreArchive!.event("subscription-started");
         let historical = true;
-        for await (const batch of startedService.subscribeLog({}, { signal })) {
+        for await (const batch of startedService.subscribeLog({}, { signal: round })) {
           if (batch.reset) await coreArchive!.event("source-buffer-reset");
           for (const message of batch.messages) await coreArchive!.write(message.level, message.message, historical);
           historical = false;
         }
       } catch (error) {
-        if (!signal.aborted) recordSystemProxyHealth("core-log-subscription-error", { error: systemProxyHealthError(error) });
+        if (!round.aborted) recordSystemProxyHealth("core-log-subscription-error", { error: systemProxyHealthError(error) });
       }
-      if (!signal.aborted) await new Promise(resolve => setTimeout(resolve, 3000));
+      if (!signal.aborted && !backgroundIdleGate.paused) await new Promise(resolve => setTimeout(resolve, 3000));
     }
   })();
 }
@@ -568,7 +571,7 @@ async function observePrioritySelection(policy: PriorityFailover, selected: stri
 }
 
 async function runPriorityCheck(): Promise<void> {
-  if (priorityBusy || priorityConfiguring || localProxyPaused) return;
+  if (priorityBusy || priorityConfiguring || localProxyPaused || daemonState.status !== ServiceStatus_Type.STARTED) return;
   priorityBusy = true;
   try {
     if (!priorityPolicy) await restorePriorityRuntime();
@@ -1496,8 +1499,20 @@ export function registerProfiles() {
   );
   reconfigureAutoUpdate();
   startCoreArchive();
-  const priorityTimer = setInterval(() => { void runPriorityCheck(); }, 1_000);
-  priorityTimer.unref();
-  app.once("before-quit", () => clearInterval(priorityTimer));
+  let priorityTimer: ReturnType<typeof setInterval> | undefined;
+  const syncPriorityTimer = () => {
+    if (daemonState.status === ServiceStatus_Type.STARTED) {
+      if (priorityTimer === undefined) {
+        priorityTimer = setInterval(() => { void runPriorityCheck(); }, 1000);
+        priorityTimer.unref();
+      }
+    } else {
+      clearInterval(priorityTimer);
+      priorityTimer = undefined;
+    }
+  };
+  daemonState.on("change", syncPriorityTimer);
+  syncPriorityTimer();
+  app.once("before-quit", () => { clearInterval(priorityTimer); daemonState.off("change", syncPriorityTimer); });
   startSystemProxyHealthMonitor();
 }

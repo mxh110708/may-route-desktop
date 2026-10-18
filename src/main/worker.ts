@@ -12,6 +12,8 @@ import { ApplicationService } from "../shared/gen/experimental/boxdd/desktop_ser
 import { localeInterceptor } from "./locale";
 import { daemonBinaryPath } from "./repair";
 import { rpcMessageLimits } from "./rpcLimits";
+import { WorkerActivity } from "./workerActivity";
+import { backgroundIdleGate } from "./backgroundIdle";
 
 // A plain stdio transport (HTTP/2 over the child's standard streams) was
 // rejected: Node wraps a non-socket duplex in JSStreamSocket, which delivers
@@ -34,6 +36,10 @@ interface WorkerProcess {
 }
 
 let currentWorker: Promise<WorkerProcess> | null = null;
+let retiringWorker: Promise<void> | null = null;
+// A long-running command may finish after observers paused. Resume them so a
+// completed service start is observed before any later idle-release decision.
+const activity = new WorkerActivity(() => backgroundIdleGate.resume());
 const WORKER_READY_TIMEOUT_MILLISECONDS = 10_000;
 
 function spawnWorker(): Promise<WorkerProcess> {
@@ -135,6 +141,8 @@ async function rethrowWorkerError(worker: WorkerProcess, error: unknown): Promis
 }
 
 async function workerConnection(): Promise<WorkerProcess> {
+  backgroundIdleGate.resume();
+  if (retiringWorker !== null) await retiringWorker;
   if (currentWorker === null) {
     const workerPromise = spawnWorker();
     currentWorker = workerPromise;
@@ -148,7 +156,7 @@ async function workerConnection(): Promise<WorkerProcess> {
   return currentWorker;
 }
 
-export const workerTransport: Transport = {
+export const workerTransport: Transport = activity.track({
   unary: async (method, signal, timeoutMs, header, message, contextValues) => {
     const worker = await workerConnection();
     try {
@@ -179,7 +187,7 @@ export const workerTransport: Transport = {
       return rethrowWorkerError(worker, error);
     }
   },
-};
+});
 
 async function daemonWorkerConnection(): Promise<Transport> {
   const transport = (await workerConnection()).daemonTransport;
@@ -189,7 +197,7 @@ async function daemonWorkerConnection(): Promise<Transport> {
   return transport;
 }
 
-export const daemonWorkerTransport: Transport = {
+export const daemonWorkerTransport: Transport = activity.track({
   unary: async (method, signal, timeoutMs, header, message, contextValues) =>
     (await daemonWorkerConnection()).unary(
       method,
@@ -208,7 +216,30 @@ export const daemonWorkerTransport: Transport = {
       input,
       contextValues,
     ),
-};
+});
+
+export async function releaseIdleWorker(stillIdle: () => boolean): Promise<boolean> {
+  if (activity.busy || !stillIdle()) return false;
+  const pending = currentWorker;
+  if (pending === null) return true;
+  const worker = await pending.catch(() => null);
+  if (worker === null) return true;
+  if (activity.busy || !stillIdle() || currentWorker !== pending) return false;
+  currentWorker = null;
+  const retirement = (async () => {
+    // The worker already exits on EOF and closes its authenticated relay.
+    const timeout = setTimeout(() => worker.child.kill(), 1000);
+    timeout.unref();
+    try {
+      worker.child.stdin?.end();
+      await worker.exitError;
+    } finally { clearTimeout(timeout); }
+  })();
+  retiringWorker = retirement;
+  try { await retirement; }
+  finally { if (retiringWorker === retirement) retiringWorker = null; }
+  return true;
+}
 
 export const applicationService: Client<typeof ApplicationService> = createClient(
   ApplicationService,

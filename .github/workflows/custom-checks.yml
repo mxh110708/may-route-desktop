@@ -48,6 +48,8 @@ jobs:
       - run: pnpm test:tray-placement
       - run: pnpm test:tray-activation
       - run: pnpm test:tray-menu
+      - run: pnpm test:background-idle
+      - run: pnpm test:renderer-loading
       - run: pnpm test:system-proxy-recovery
       - run: pnpm test:installer-preflight
       - run: pnpm typecheck

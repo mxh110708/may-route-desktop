@@ -5,6 +5,18 @@ import { resolve } from "node:path";
 import type { Plugin } from "vite";
 
 import { readApplicationVersion } from "./scripts/version";
+import { auditRendererLoading } from "./scripts/rendererLoading";
+
+function checkRendererLoading(): Plugin {
+  return {
+    name: "check-renderer-loading",
+    generateBundle(_options, bundle) {
+      const chunks = Object.values(bundle).filter(item => item.type === "chunk");
+      const result = auditRendererLoading(chunks);
+      this.emitFile({ type: "asset", fileName: "renderer-loading.json", source: JSON.stringify(result, null, 2) });
+    },
+  };
+}
 
 function contentSecurityPolicy(): Plugin {
   let development = false;
@@ -64,6 +76,7 @@ export default defineConfig({
   },
   renderer: {
     build: {
+      minify: "esbuild",
       rollupOptions: {
         input: {
           index: resolve(import.meta.dirname, "src/renderer/index.html"),
@@ -89,6 +102,6 @@ export default defineConfig({
         "@connectrpc/connect-web",
       ],
     },
-    plugins: [react(), contentSecurityPolicy()],
+    plugins: [react(), contentSecurityPolicy(), checkRendererLoading()],
   },
 });

@@ -9,6 +9,7 @@ import { desktopService, startedService } from "./daemon";
 import { preferredLocale } from "./locale";
 import { onPreferenceChanged } from "./preferences";
 import { bundledDaemonVersion, probeService } from "./repair";
+import { backgroundIdleGate } from "./backgroundIdle";
 
 const RECONNECT_DELAY = 3000;
 const HANDSHAKE_TIMEOUT = 3000;
@@ -59,6 +60,7 @@ class DaemonState extends EventEmitter {
   }
 
   private setConnection(connection: DaemonConnectionState) {
+    if (JSON.stringify(this.connection) === JSON.stringify(connection)) return;
     this.connection = connection;
     this.emit("connection");
     this.emit("change");
@@ -81,6 +83,8 @@ class DaemonState extends EventEmitter {
   private async loopConnection(): Promise<void> {
     let attempt = 0;
     for (;;) {
+      await backgroundIdleGate.wait();
+      if (backgroundIdleGate.paused) continue;
       try {
         const info = await desktopService!.getDaemonInfo({}, { timeoutMs: HANDSHAKE_TIMEOUT });
         const bundledVersion = await bundledDaemonVersion();
@@ -130,7 +134,11 @@ class DaemonState extends EventEmitter {
         continue;
       }
       const session = new AbortController();
-      void this.loopGroups(session.signal);
+      const pause = () => session.abort();
+      const idleSignal = backgroundIdleGate.signal;
+      idleSignal.addEventListener("abort", pause, { once: true });
+      if (idleSignal.aborted) pause();
+      if (process.platform !== "win32") void this.loopGroups(session.signal);
       let routingSession: AbortController | null = null;
       session.signal.addEventListener("abort", () => routingSession?.abort(), { once: true });
       this.emit("session", session.signal);
@@ -139,13 +147,16 @@ class DaemonState extends EventEmitter {
           {},
           { signal: session.signal },
         )) {
+          if (session.signal.aborted) break;
           const nextStatus = message.status ?? ServiceStatus_Type.IDLE;
           if (process.platform === "win32" && nextStatus !== this.status) {
             routingSession?.abort();
             routingSession = null;
+            this.groups = [];
             this.routing = { modeList: [], currentMode: "" };
             if (nextStatus === ServiceStatus_Type.STARTED) {
               routingSession = new AbortController();
+              void this.loopGroups(routingSession.signal);
               void this.loopRouting(routingSession.signal);
             }
           }
@@ -154,6 +165,8 @@ class DaemonState extends EventEmitter {
         }
       } catch {}
       session.abort();
+      idleSignal.removeEventListener("abort", pause);
+      if (backgroundIdleGate.paused) continue;
       this.status = null;
       this.groups = [];
       this.routing = { modeList: [], currentMode: "" };
@@ -166,10 +179,12 @@ class DaemonState extends EventEmitter {
     while (!signal.aborted) {
       try {
         for await (const message of startedService!.subscribeGroups({}, { signal })) {
+          if (signal.aborted) return;
           this.groups = message.group;
           this.emit("change");
         }
       } catch {}
+      if (signal.aborted) return;
       if (this.groups.length > 0) {
         this.groups = [];
         this.emit("change");

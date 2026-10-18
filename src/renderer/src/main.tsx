@@ -8,6 +8,7 @@ import { createRoot } from "react-dom/client";
 
 import { App } from "@dashboard/App";
 import { configurePreferenceStorage } from "@dashboard/lib/storage";
+import { setStreamsSuspended } from "@dashboard/api/stream";
 import "@dashboard/styles/globals.css";
 import "@dashboard/styles/shared.css";
 
@@ -89,6 +90,10 @@ function watchTitleBarOverlay() {
 }
 
 watchTitleBarOverlay();
+
+const syncStreamVisibility = () => setStreamsSuspended(document.hidden);
+document.addEventListener("visibilitychange", syncStreamVisibility);
+syncStreamVisibility();
 
 const desktop = createDesktopHost();
 configurePreferenceStorage(desktop.preferences);

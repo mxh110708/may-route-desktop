@@ -57,6 +57,45 @@ transitioning and disconnected states disable unavailable mutations.
 The renderer-based tray remains available for Linux, with bounded resize IPC
 restricted to its own window.
 
+## Background resource usage
+
+Hidden desktop pages pause replayable data streams, UI clocks and failover-panel polling.
+They retain component state and unsaved form values, then read current data
+when visible again. This only pauses presentation; a running proxy keeps its
+backend monitoring, log archiving, failover and recovery behavior.
+An open connection-history view keeps its bounded event stream while hidden:
+the proxy's closed-connection cache is GC-evictable and cannot reliably replay
+missed history. Leaving that page still releases its unused table. This active
+stream can also defer stopped-worker retirement; preserving history takes
+precedence over releasing that worker.
+
+On Windows, a connected but stopped proxy with every window hidden, minimized
+or closed can release its application worker after 15 seconds. Observer RPCs
+are cancelled first; in-flight commands prevent retirement. Returning to a
+window or invoking a worker-backed tray action resumes the authenticated worker
+on demand. A command that completes during the idle transition resumes service
+observation, so a completed service start is not treated as still stopped.
+No proxy stop, network setting change or Windows working-set trim is used.
+See `docs/BACKGROUND-PERFORMANCE-2026-10-18.zh-CN.md` for measured scope and limits.
+
+Terminal rendering and release-note Markdown are loaded on first use and remain
+available offline from the signed installation. Production renderer scripts
+are minified. The bundle audit fails a build if optional terminal/Markdown
+dependencies enter an initial or shared startup chunk, or if either feature
+is missing. Stopped clients also avoid runtime-only groups/routing subscriptions
+in their visible dashboard and Linux tray; service-status observation remains.
+
+The application worker reclaims its unused Go heap once after configuration or
+schema processing and 10 seconds with no active application RPC. A new request
+defers collection; long-running streams protect active work. This policy is
+limited to the application worker and does not change the proxy process's GC
+settings, concurrency or memory limit. It does not run periodic cleanup.
+Rebuildable stream tables are discarded when their last view unsubscribes;
+log pause snapshots and stale font loads release references after use. Active
+views, current data, normal log limits, selected fonts and drafts are retained.
+See `docs/MEMORY-PERFORMANCE-2026-10-18.zh-CN.md` for the four-state comparison
+and normal-use checks; startup byte counts are not used as RAM savings.
+
 Priority failover reconciles saved order against the selected configuration on
 both the editor and runtime paths. Surviving custom members keep their order;
 new nodes remain available for explicit inclusion. An entirely obsolete order

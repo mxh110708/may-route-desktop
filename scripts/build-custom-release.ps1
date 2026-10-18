@@ -89,6 +89,13 @@ function Invoke-Pnpm {
 
 Push-Location $repositoryRoot
 try {
+    Push-Location (Join-Path $repositoryRoot "..\sing-box")
+    try {
+        & $resolvedGo test ./experimental/boxdd -run TestWorkerMemory -count=1
+        if ($LASTEXITCODE -ne 0) { throw "Application worker memory lifecycle tests failed." }
+    } finally {
+        Pop-Location
+    }
     Invoke-Pnpm test:update-source
     Invoke-Pnpm test:runtime-config
     Invoke-Pnpm test:proxy-ports
@@ -100,6 +107,8 @@ try {
     Invoke-Pnpm test:tray-placement
     Invoke-Pnpm test:tray-activation
     Invoke-Pnpm test:tray-menu
+    Invoke-Pnpm test:background-idle
+    Invoke-Pnpm test:renderer-loading
     Invoke-Pnpm test:installer-preflight
     Invoke-Pnpm typecheck
     Invoke-Pnpm -Arguments @("-C", "dashboard", "test", "--", "--run")

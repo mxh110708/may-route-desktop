@@ -18,6 +18,9 @@ import type {
   TitleBarOverlayColors,
 } from "../shared/ipc";
 import { configureApplicationPaths } from "./applicationPaths";
+import { backgroundIdleGate, BackgroundIdleController } from "./backgroundIdle";
+import { releaseIdleWorker } from "./worker";
+import { ServiceStatus_Type } from "../shared/gen/daemon/started_service_pb";
 import {
   archiveNativeCrashDumps,
   captureRuntimeCrash,
@@ -209,6 +212,24 @@ let terminalWindows: Set<BrowserWindow> | null = null;
 let profileEditorWindows: Set<BrowserWindow> | null = null;
 let quitting = false;
 
+const backgroundIdle = new BackgroundIdleController(backgroundIdleGate, releaseIdleWorker);
+function refreshBackgroundIdle(): void {
+  backgroundIdle.update(
+    process.platform === "win32" && trayInBackground() && !quitting &&
+    daemonState.connection.phase === "connected" && daemonState.status === ServiceStatus_Type.IDLE &&
+    !BrowserWindow.getAllWindows().some(window => !window.isDestroyed() && window.isVisible() && !window.isMinimized()),
+  );
+}
+
+app.on("browser-window-created", (_event, window) => {
+  window.on("show", refreshBackgroundIdle);
+  window.on("hide", refreshBackgroundIdle);
+  window.on("minimize", refreshBackgroundIdle);
+  window.on("restore", refreshBackgroundIdle);
+  window.on("closed", refreshBackgroundIdle);
+});
+daemonState.on("change", refreshBackgroundIdle);
+
 function maybeQuitAfterWindowClosed() {
   if (
     !quitting &&
@@ -223,6 +244,7 @@ function maybeQuitAfterWindowClosed() {
 
 app.on("before-quit", () => {
   quitting = true;
+  backgroundIdle.dispose();
 });
 
 function registerMainWindowStatePersistence(window: BrowserWindow, initiallyMaximized: boolean) {

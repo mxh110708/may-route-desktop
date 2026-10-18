@@ -33,6 +33,8 @@
     "test:tray-placement": "tsx --test src/main/trayPlacement.test.ts",
     "test:tray-activation": "tsx --test src/main/windowsTrayActivation.test.ts",
     "test:tray-menu": "tsx --test src/main/windowsTrayMenu.test.ts",
+    "test:background-idle": "tsx --test src/main/backgroundIdle.test.ts src/main/workerActivity.test.ts",
+    "test:renderer-loading": "tsx --test scripts/rendererLoading.test.ts",
     "package-dev:win": "tsx scripts/package.ts dev win",
     "package-dev:linux": "tsx scripts/package.ts dev linux",
     "package-dev:linux:deb": "tsx scripts/package.ts dev linux deb",
