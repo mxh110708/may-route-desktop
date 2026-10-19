@@ -170,11 +170,14 @@ export interface PriorityPanelState {
   needsReload: boolean;
   selected: string | null;
   lastSwitch: { from: string; to: string; at: string; reason: string } | null;
+  usageAware?: boolean;
+  activityAvailable?: boolean;
+  activeGroups?: { group: string; selected: string | null; preferred: string | null; monitoredSelected: boolean }[];
 }
 
 export type PrioritySummaryState = Pick<PriorityPanelState,
-  "running" | "directMode" | "active" | "preferred" | "monitoredSelected" | "needsReload" | "selected"> & {
-  settings: { group: string };
+  "running" | "directMode" | "active" | "preferred" | "monitoredSelected" | "needsReload" | "selected" | "usageAware" | "activityAvailable" | "activeGroups"> & {
+  settings: { group: string; enabled?: boolean };
 };
 
 export interface ProfilesBridge {

@@ -101,6 +101,7 @@ export interface SystemProxyProbeOptions {
   timeoutMs?: number;
   path?: string;
   ca?: string | Buffer;
+  connectedSourcePort?(port: number): void;
 }
 
 export interface ProxyQuality {
@@ -274,6 +275,7 @@ export function probeSystemProxy(
 
     socket.setNoDelay(true);
     socket.once("connect", () => {
+      if (socket.localPort) options.connectedSourcePort?.(socket.localPort);
       tcpAt = performance.now(); stage = "proxy-connect";
       socket.write(
         `CONNECT ${targetHost}:${targetPort} HTTP/1.1\r\n` +

@@ -4,7 +4,7 @@ import test from "node:test";
 import { PriorityProfileCache, prioritySummaryState } from "./priorityProfileCache";
 import type { PriorityPanelState } from "../shared/ipc";
 import { priorityGroups, priorityTags, priorityTagsFromGroups, reconcilePrioritySettings } from "./priorityFailover";
-import { DEFAULT_PRIORITY_SETTINGS, priorityContextRevision } from "./prioritySettings";
+import { DEFAULT_PRIORITY_SETTINGS, parsePrioritySettings, priorityContextRevision } from "./prioritySettings";
 import { buildRuntimeConfig } from "./runtimeConfig";
 
 const content = (tag: string) => JSON.stringify({ inbounds: [
@@ -71,7 +71,19 @@ test("cached group and order arrays cannot be changed by a reader", () => {
   const result = cache.read("one", content("old"), "system-proxy", snapshot);
   assert.throws(() => result.groups[0].nodes.push("stale"));
   assert.throws(() => result.settings.order.push("stale"));
+  assert.throws(() => result.settings.groupOrders!.entry.push("stale"));
+  assert.throws(() => { result.settings.groupOrders!.other = ["stale"]; });
   assert.deepEqual(cache.read("one", content("old"), "system-proxy", snapshot).settings.order, ["old"]);
+});
+
+test("different map key order or following a group's default never asks for a duplicate save", () => {
+  const raw = JSON.stringify({ outbounds: [{ type: "selector", tag: "West", outbounds: ["w"] },
+    { type: "selector", tag: "Europe", outbounds: ["e"] }, { type: "shadowsocks", tag: "w" }, { type: "shadowsocks", tag: "e" }] });
+  const cache = new PriorityProfileCache(value => value);
+  const settings = parsePrioritySettings({ group: "Europe", groupOrders: { Europe: ["e"], West: ["w"] } });
+  assert.equal(cache.read("one", raw, "system-proxy", { settings, revision: "one" }).reconciled, false);
+  const following = parsePrioritySettings({ group: "Europe", groupOrders: { Europe: [], West: ["w"] } });
+  assert.equal(cache.read("one", raw, "system-proxy", { settings: following, revision: "two" }).reconciled, false);
 });
 
 test("the overview keeps every running-state flag without retaining editor node lists", () => {
@@ -81,4 +93,14 @@ test("the overview keeps every running-state flag without retaining editor node 
     needsReload: true, selected: "new", lastSwitch: { from: "old", to: "new", at: "now", reason: "fixture" } };
   assert.deepEqual(prioritySummaryState(state), { settings: { group: "entry" }, running: true, directMode: false,
     active: true, preferred: "old", monitoredSelected: true, needsReload: true, selected: "new" });
+});
+
+test("the overview projects actual monitored groups instead of the editor's selected region", () => {
+  const state: PriorityPanelState = { settings: { ...snapshot.settings, group: "Europe" }, groups: [], revision: "one", profileId: "one", path: "fixture",
+    usageAware: true, activityAvailable: true, running: true, directMode: false, active: true, preferred: "w", monitoredSelected: true,
+    needsReload: false, selected: "West: w；HK: h", lastSwitch: null,
+    activeGroups: [{ group: "West", selected: "w", preferred: "w", monitoredSelected: true }, { group: "HK", selected: "h", preferred: "h", monitoredSelected: true }] };
+  const summary = prioritySummaryState(state);
+  assert.equal(summary.settings.group, "West / HK"); assert.deepEqual(summary.activeGroups, state.activeGroups);
+  assert.equal(prioritySummaryState({ ...state, active: false, activeGroups: [], selected: null }).settings.group, "");
 });

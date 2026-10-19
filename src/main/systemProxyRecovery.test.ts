@@ -137,7 +137,9 @@ test("real TLS and HTTPS status are required; 403 is reachable not an outage", a
   await new Promise<void>(r => proxy.listen(0, "127.0.0.1", r));
   const address = proxy.address(); assert.ok(address && typeof address !== "string");
   try {
-    const result = await probeSystemProxy({ server: "127.0.0.1", port: address.port }, { ca: cert, timeoutMs: 2_000 });
+    let connectedSourcePort = 0;
+    const result = await probeSystemProxy({ server: "127.0.0.1", port: address.port }, { ca: cert, timeoutMs: 2_000, connectedSourcePort: port => { connectedSourcePort = port; } });
+    assert.ok(connectedSourcePort > 0, "probe source is marked before the CONNECT request can enter activity tracking");
     assert.equal(result.status, 403); assert.ok(result.totalMs >= result.tlsMs);
     await assert.rejects(probeSystemProxy({ server: "127.0.0.1", port: address.port }, { timeoutMs: 2_000 }), /tls:/);
   } finally { await new Promise<void>(r => proxy.close(() => r())); await new Promise<void>(r => tls.close(() => r())); }

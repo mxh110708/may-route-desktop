@@ -1,5 +1,5 @@
 import { createServer } from "node:net";
-import { DEFAULT_PRIORITY_SETTINGS, type PrioritySettings } from "./prioritySettings";
+import { DEFAULT_PRIORITY_SETTINGS, priorityGroupOrder, type PrioritySettings } from "./prioritySettings";
 
 export interface Candidate { tag: string; port: number }
 
@@ -25,8 +25,13 @@ export function reconcilePriorityGroups(groups: { tag: string; nodes: string[] }
   // Preserve an intentional subset; newly introduced nodes remain available in
   // the editor instead of silently opting excluded nodes into monitoring.
   const available = new Set(group?.nodes);
-  const order = settings.order.filter((tag) => available.has(tag));
-  return { ...settings, order };
+  const order = priorityGroupOrder(settings, settings.group).filter((tag) => available.has(tag));
+  const groupOrders = Object.fromEntries(groups.flatMap(item => {
+    const members = new Set(item.nodes);
+    const saved = priorityGroupOrder(settings, item.tag).filter(tag => members.has(tag));
+    return saved.length ? [[item.tag, saved]] : [];
+  }));
+  return { ...settings, order, groupOrders };
 }
 
 export function priorityTags(content: string, settings: PrioritySettings = DEFAULT_PRIORITY_SETTINGS): string[] {
@@ -56,8 +61,12 @@ export async function allocateProbePorts(count: number): Promise<number[]> {
   } finally { await Promise.all(servers.map(s => new Promise<void>(resolve => s.close(() => resolve())))); }
 }
 
-export function addProbeRoutes(content: string, ports: number[], settings: PrioritySettings = DEFAULT_PRIORITY_SETTINGS): { content: string; candidates: Candidate[] } {
-  const config = JSON.parse(content), tags = priorityTags(content, settings);
+export function priorityProbeTags(content: string, settings: PrioritySettings): string[] {
+  return settings.enabled ? [...new Set(priorityGroups(content).flatMap(group => group.nodes))] : [];
+}
+
+export function addProbeRoutes(content: string, ports: number[], settings: PrioritySettings = DEFAULT_PRIORITY_SETTINGS, allGroups = false): { content: string; candidates: Candidate[] } {
+  const config = JSON.parse(content), tags = allGroups ? priorityProbeTags(content, settings) : priorityTags(content, settings);
   if (tags.length !== ports.length) throw new Error("priority probe port count mismatch");
   if (!tags.length) return { content, candidates: [] };
   const candidates = tags.map((tag, i) => ({ tag, port: ports[i] }));

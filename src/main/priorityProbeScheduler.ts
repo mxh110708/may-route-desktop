@@ -14,7 +14,7 @@ export class PriorityProbeScheduler {
   get busy(): boolean { return this.activeBusy || this.backupBusy; }
   constructor(private readonly deps: {
     now(): number;
-    probe(candidate: Candidate): Promise<boolean>;
+    probe(candidate: Candidate, lane: "active" | "backup"): Promise<boolean>;
     sample(sample: NodeSample): Promise<void>;
     activeDelay(reachable: boolean): number;
     backupInterval(): number;
@@ -36,7 +36,7 @@ export class PriorityProbeScheduler {
       this.activeBusy = true;
       void (async () => {
         const at = this.deps.now();
-        const reachable = await this.deps.probe(active);
+        const reachable = await this.deps.probe(active, "active");
         if (!current()) return;
         this.latestActive = { tag: selected, at, reachable };
         await this.deps.sample(this.latestActive);
@@ -56,7 +56,7 @@ export class PriorityProbeScheduler {
           while (queue.length && current()) {
             const candidate = queue.shift()!;
             const at = this.deps.now();
-            const reachable = await this.deps.probe(candidate);
+            const reachable = await this.deps.probe(candidate, "backup");
             if (!current()) return;
             results.set(candidate.tag, reachable);
             await this.deps.sample({ tag: candidate.tag, at, reachable });

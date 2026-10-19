@@ -52,6 +52,7 @@ jobs:
       - run: pnpm test:renderer-loading
       - run: pnpm test:localization
       - run: pnpm test:system-proxy-recovery
+      - run: pnpm test:priority-editor:electron
       - run: pnpm test:installer-preflight
       - run: pnpm typecheck
       - run: pnpm -C dashboard test -- --run

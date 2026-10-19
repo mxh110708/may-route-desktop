@@ -1,7 +1,11 @@
 {
   "enabled": true,
-  "group": "US-West Entry",
+  "group": "US-West-LA Entry",
   "order": [],
+  "groupOrders": {
+    "US-West-LA Entry": [],
+    "HK Entry": []
+  },
   "failureRounds": 3,
   "backupSuccessRounds": 2,
   "recoverySuccessRounds": 3,

@@ -8,9 +8,10 @@ import type { CaptureMode } from "./runtimeConfig";
 import type { PriorityPanelState, PrioritySummaryState } from "../shared/ipc";
 
 export function prioritySummaryState(state: PriorityPanelState): PrioritySummaryState {
-  return { settings: { group: state.settings.group }, running: state.running, directMode: state.directMode,
+  return { settings: { group: state.activeGroups?.map(group => group.group).join(" / ") ?? state.settings.group, ...(state.usageAware ? { enabled: state.settings.enabled } : {}) }, running: state.running, directMode: state.directMode,
     active: state.active, preferred: state.preferred, monitoredSelected: state.monitoredSelected,
-    needsReload: state.needsReload, selected: state.selected };
+    needsReload: state.needsReload, selected: state.selected,
+    ...(state.usageAware ? { usageAware: true, activityAvailable: state.activityAvailable, activeGroups: state.activeGroups } : {}) };
 }
 
 export interface PriorityProfileProjection {
@@ -38,14 +39,18 @@ export class PriorityProfileCache {
     this.entry = undefined;
     const groups = content ? priorityGroups(this.build(content, capture)) : [];
     const settings = reconcilePriorityGroups(groups, snapshot.settings);
+    const ordersKey = (orders: PrioritySettings["groupOrders"]) => JSON.stringify(Object.keys(orders ?? {}).sort()
+      .filter(group => orders![group].length).map(group => [group, orders![group]]));
     const value = {
       hash, groups, settings,
       revision: priorityContextRevision(snapshot.revision, profileId, content),
-      reconciled: JSON.stringify(settings.order) !== JSON.stringify(snapshot.settings.order),
+      reconciled: JSON.stringify(settings.order) !== JSON.stringify(snapshot.settings.order) || ordersKey(settings.groupOrders) !== ordersKey(snapshot.settings.groupOrders),
     };
     for (const group of groups) { Object.freeze(group.nodes); Object.freeze(group); }
     Object.freeze(groups);
     Object.freeze(settings.order);
+    for (const order of Object.values(settings.groupOrders ?? {})) Object.freeze(order);
+    Object.freeze(settings.groupOrders);
     Object.freeze(settings);
     Object.freeze(value);
     this.entry = { key, value };

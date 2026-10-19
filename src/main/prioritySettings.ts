@@ -6,7 +6,7 @@ export type { PrioritySettings } from "../shared/priority";
 
 // Initial defaults only: no provider names or priorities are inferred by the application.
 export const DEFAULT_PRIORITY_SETTINGS: PrioritySettings = {
-  enabled: true, group: "", order: [], failureRounds: 3,
+  enabled: true, group: "", order: [], groupOrders: {}, failureRounds: 3,
   backupSuccessRounds: 2, recoverySuccessRounds: 3, recoveryStableMs: 120000,
   failbackCooldownMs: 60000,
   probeTimeoutMs: 8000, healthyIntervalMs: 30000, failureIntervalMs: 10000,
@@ -30,7 +30,24 @@ export function parsePrioritySettings(value: unknown): PrioritySettings {
     const max = key === "probeTimeoutMs" ? 60000 : 600000;
     if (!Number.isInteger(settings[key]) || settings[key] < min || settings[key] > max) throw new Error(`${key} 必须为 ${min}–${max} 的整数毫秒`);
   }
-  return { ...settings, order: [...settings.order] };
+  const supplied = input.groupOrders;
+  if (supplied !== undefined && (!supplied || typeof supplied !== "object" || Array.isArray(supplied))) throw new Error("groupOrders 必须是按入口组保存的顺序对象");
+  const orders = Object.fromEntries(Object.entries(supplied ?? {}).map(([group, order]) => {
+    if (!group.trim() || !Array.isArray(order) || order.some(v => typeof v !== "string" || !v.trim()) || new Set(order).size !== order.length) throw new Error("每个入口组的顺序必须是无重复节点名称的数组");
+    return [group, [...order] as string[]];
+  }));
+  // Legacy single-group settings migrate once; an explicit per-group entry wins.
+  if (settings.group && !Object.hasOwn(orders, settings.group) && settings.order.length) Object.defineProperty(orders, settings.group, { value: [...settings.order], enumerable: true, configurable: true, writable: true });
+  return { ...settings, groupOrders: orders, order: [...(Object.hasOwn(orders, settings.group) ? orders[settings.group] : settings.order)] };
+}
+
+export function priorityGroupOrder(settings: PrioritySettings, group: string): string[] {
+  if (settings.groupOrders && Object.hasOwn(settings.groupOrders, group)) return settings.groupOrders[group];
+  return settings.group === group ? settings.order : [];
+}
+
+export function priorityGroupSettings(settings: PrioritySettings, group: string): PrioritySettings {
+  return { ...settings, group, order: [...priorityGroupOrder(settings, group)], groupOrders: {} };
 }
 
 export async function loadPrioritySettings(path: string): Promise<PrioritySettings> {
