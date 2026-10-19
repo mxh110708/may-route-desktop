@@ -180,6 +180,7 @@ const bridge: DesktopBridge = {
       proxyPortState: () => callProfiles("proxyPortState"),
       proxyPortSave: (ports, revision, profileId, running) => callProfiles("proxyPortSave", ports, revision, profileId, running),
       priorityState: () => callProfiles("priorityState"),
+      prioritySummary: () => callProfiles("prioritySummary"),
       prioritySave: (settings, revision, profileId) => callProfiles("prioritySave", settings, revision, profileId),
       priorityApply: (revision, profileId) => callProfiles("priorityApply", revision, profileId),
     list: () => callProfiles("list"),

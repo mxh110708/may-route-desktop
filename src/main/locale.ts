@@ -1,17 +1,12 @@
 import type { Interceptor } from "@connectrpc/connect";
 import { app } from "electron";
 
-import { DESKTOP_LANGUAGES } from "../shared/translations";
+import { preferredDesktopLanguage } from "../shared/translations";
 import { preferenceSnapshot } from "./database";
-
-const desktopLanguages = new Set<string>(DESKTOP_LANGUAGES);
 
 export function preferredLocale(): string {
   const language = preferenceSnapshot(["language"]).language;
-  if (typeof language === "string" && desktopLanguages.has(language)) {
-    return language;
-  }
-  return app.getLocale();
+  return preferredDesktopLanguage(language, app.getLocale());
 }
 
 export const localeInterceptor: Interceptor = (next) => async (request) => {

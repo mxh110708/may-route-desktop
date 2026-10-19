@@ -109,6 +109,7 @@ try {
     Invoke-Pnpm test:tray-menu
     Invoke-Pnpm test:background-idle
     Invoke-Pnpm test:renderer-loading
+    Invoke-Pnpm test:localization
     Invoke-Pnpm test:installer-preflight
     Invoke-Pnpm typecheck
     Invoke-Pnpm -Arguments @("-C", "dashboard", "test", "--", "--run")

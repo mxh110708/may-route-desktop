@@ -48,9 +48,10 @@ import { CoreLogArchive } from "./coreLogArchive";
 import { showSystemProxyRecoveryWarning } from "./notifications";
 import { WindowsProxyMonitor, type WindowsProxyContext, type WindowsProxyHealth, type ProxyRecoveryCheckpoint } from "./windowsProxyMonitor";
 import { PriorityProbeScheduler } from "./priorityProbeScheduler";
-import { PriorityFailover, addProbeRoutes, allocateProbePorts, priorityTags, priorityGroups, reconcilePrioritySettings, type Candidate } from "./priorityFailover";
+import { PriorityProfileCache, prioritySummaryState } from "./priorityProfileCache";
+import { PriorityFailover, addProbeRoutes, allocateProbePorts, priorityTags, priorityTagsFromGroups, reconcilePrioritySettings, type Candidate } from "./priorityFailover";
 import { loadPrioritySettings, parsePrioritySettings, prioritySettingsSnapshot, savePrioritySettings, priorityContextRevision } from "./prioritySettings";
-import type { PriorityPanelState } from "../shared/ipc";
+import type { PriorityPanelState, PrioritySummaryState } from "../shared/ipc";
 import {
   ConsecutiveFailureRecovery,
   nextSystemProxyProbeDelay,
@@ -439,24 +440,23 @@ let priorityConfiguring = false;
 let priorityLastSwitch: PriorityPanelState["lastSwitch"] = null;
 function priorityCachePath(): string { return join(app.getPath("userData"), "priority-runtime.json"); }
 function prioritySettingsPath(): string { return join(app.getPath("userData"), "priority-failover.json"); }
+const priorityProfileCache = new PriorityProfileCache();
 async function priorityPanelState(): Promise<PriorityPanelState> {
   const snapshot = await prioritySettingsSnapshot(prioritySettingsPath());
   const profileId = selectedProfileId();
   const rawContent = profileId ? await readFile(contentPath(profileId), "utf8") : null;
-  const content = rawContent ? buildRuntimeConfig(rawContent, captureModePreference.get()) : null;
-  const groups = content ? priorityGroups(content) : [];
-  const settings = content ? reconcilePrioritySettings(content, snapshot.settings) : { ...snapshot.settings, order: [] };
-  const revision = priorityContextRevision(snapshot.revision, profileId, rawContent);
+  const projection = priorityProfileCache.read(profileId, rawContent, captureModePreference.get(), snapshot);
+  const { groups, settings, revision } = projection;
   const running = daemonState.status === ServiceStatus_Type.STARTED;
   const directMode = running && startedService !== null &&
     (await startedService.getClashModeStatus({}, { timeoutMs: 1000 }).catch(() => ({ currentMode: "" }))).currentMode.toLowerCase() === "direct";
   const selected = daemonState.groups.find(group => group.tag === (priorityPolicy?.settings.group ?? snapshot.settings.group))?.selected ?? null;
-  return { ...snapshot, settings, revision, reconciled: JSON.stringify(settings.order) !== JSON.stringify(snapshot.settings.order), profileId, groups, path: prioritySettingsPath(), running, directMode,
+  return { ...snapshot, settings, revision, reconciled: projection.reconciled, profileId, groups, path: prioritySettingsPath(), running, directMode,
     active: running && !directMode && priorityCandidates.length > 0 && !!priorityPolicy?.settings.enabled,
     preferred: priorityPolicy?.preferred ?? null,
     monitoredSelected: selected !== null && (priorityPolicy?.isMonitored(selected) ?? false),
     needsReload: running && (JSON.stringify(priorityPolicy?.settings) !== JSON.stringify(settings) ||
-      rawContent !== null && createHash("sha256").update(rawContent).digest("hex") !== priorityProfileHash),
+      projection.hash !== null && projection.hash !== priorityProfileHash),
     selected,
     lastSwitch: priorityLastSwitch };
 }
@@ -508,9 +508,10 @@ async function restorePriorityRuntime(): Promise<void> {
     if (!profile || saved.profile !== profile || saved.mode !== captureModePreference.get()) return;
     const content = await readFile(contentPath(profile), "utf8");
     if (saved.hash !== createHash("sha256").update(content).digest("hex") || !Array.isArray(saved.candidates)) return;
-    const settings = reconcilePrioritySettings(buildRuntimeConfig(content, captureModePreference.get()), await loadPrioritySettings(prioritySettingsPath()));
+    const projection = priorityProfileCache.read(profile, content, captureModePreference.get(), await prioritySettingsSnapshot(prioritySettingsPath()));
+    const settings = projection.settings;
     if (JSON.stringify(saved.settings) !== JSON.stringify(settings)) return;
-    const tags = priorityTags(buildRuntimeConfig(content, captureModePreference.get()), settings);
+    const tags = priorityTagsFromGroups(projection.groups, settings);
     if (saved.candidates.length !== tags.length || saved.candidates.some((c: Candidate, i: number) => c.tag !== tags[i] || !Number.isInteger(c.port) || c.port < 1024 || c.port > 65535)) return;
     if (generation !== priorityGeneration) return;
     priorityCandidates = saved.candidates; priorityProfileHash = saved.hash; priorityProfileId = profile;
@@ -1184,6 +1185,9 @@ const handlers: Record<
     return proxyPortPanelState();
   },
   async priorityState(): Promise<PriorityPanelState> { return priorityPanelState(); },
+  async prioritySummary(): Promise<PrioritySummaryState> {
+    return prioritySummaryState(await priorityPanelState());
+  },
   async prioritySave(value: PriorityPanelState["settings"], revision: string, profileId: string | null): Promise<PriorityPanelState> {
     if (profileId !== selectedProfileId()) throw new Error("当前配置已切换，请刷新面板后重试。");
     const view = await priorityPanelState();

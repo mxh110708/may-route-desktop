@@ -1,381 +1,95 @@
-export const DESKTOP_LANGUAGES = ["en", "zh-Hans", "zh-Hant", "fa", "ru"] as const;
-
+export const DESKTOP_LANGUAGES = ["en", "zh-Hans"] as const;
 export type DesktopLanguage = (typeof DESKTOP_LANGUAGES)[number];
 
-type DesktopMessage = Record<Exclude<DesktopLanguage, "en">, string>;
-
 export const DESKTOP_TRANSLATIONS = {
-  "Start Service": { "zh-Hans": "启动服务", "zh-Hant": "啟動服務", "fa": "شروع سرویس", "ru": "Запустить службу" },
-  "Stop Service": { "zh-Hans": "停止服务", "zh-Hant": "停止服務", "fa": "توقف سرویس", "ru": "Остановить службу" },
-  "Service starting...": { "zh-Hans": "服务正在启动…", "zh-Hant": "服務正在啟動…", "fa": "در حال شروع سرویس…", "ru": "Запуск службы…" },
-  "Service stopping...": { "zh-Hans": "服务正在停止…", "zh-Hant": "服務正在停止…", "fa": "در حال توقف سرویس…", "ru": "Остановка службы…" },
-  "Routing Mode": { "zh-Hans": "路由模式", "zh-Hant": "路由模式", "fa": "حالت مسیریابی", "ru": "Режим маршрутизации" },
-  "Rule": { "zh-Hans": "规则", "zh-Hant": "規則", "fa": "قانون", "ru": "Правила" },
-  "Global": { "zh-Hans": "全局", "zh-Hant": "全域", "fa": "سراسری", "ru": "Глобально" },
-  "Direct": { "zh-Hans": "直连", "zh-Hant": "直連", "fa": "مستقیم", "ru": "Напрямую" },
-  "System Proxy": { "zh-Hans": "系统代理", "zh-Hant": "系統代理", "fa": "پراکسی سیستم", "ru": "Системный прокси" },
-  "TUN Mode": { "zh-Hans": "TUN 模式", "zh-Hant": "TUN 模式", "fa": "حالت TUN", "ru": "Режим TUN" },
-  "Reload profile": { "zh-Hans": "重新加载当前配置", "zh-Hant": "重新載入目前設定", "fa": "بارگذاری مجدد", "ru": "Перезагрузить профиль" },
-  "More": { "zh-Hans": "更多", "zh-Hant": "更多", "fa": "بیشتر", "ru": "Ещё" },
-  "Connections": { "zh-Hans": "连接", "zh-Hant": "連接", "fa": "اتصال‌ها", "ru": "Подключения" },
-  "Logs": { "zh-Hans": "日志", "zh-Hant": "日誌", "fa": "گزارش‌ها", "ru": "Журналы" },
-  "Settings": { "zh-Hans": "设置", "zh-Hant": "設定", "fa": "تنظیمات", "ru": "Настройки" },
-  "Open data directory": { "zh-Hans": "打开数据目录", "zh-Hant": "開啟資料目錄", "fa": "باز کردن پوشه داده", "ru": "Открыть папку данных" },
-  "Unavailable": { "zh-Hans": "暂不可用", "zh-Hant": "暫不可用", "fa": "در دسترس نیست", "ru": "Недоступно" },
-  "Start": {
-    "zh-Hans": "启动",
-    "zh-Hant": "啟動",
-    "fa": "شروع",
-    "ru": "Запустить",
-  },
-  "Stop": {
-    "zh-Hans": "停止",
-    "zh-Hant": "停止",
-    "fa": "توقف",
-    "ru": "Остановить",
-  },
-  "Service": {
-    "zh-Hans": "服务",
-    "zh-Hant": "服務",
-    "fa": "سرویس",
-    "ru": "Служба",
-  },
-  "System HTTP Proxy": {
-    "zh-Hans": "系统 HTTP 代理",
-    "zh-Hant": "系統 HTTP 代理",
-    "fa": "پروکسی HTTP سیستم",
-    "ru": "Системный HTTP-прокси",
-  },
-  "Enabled": {
-    "zh-Hans": "已启用",
-    "zh-Hant": "已啟用",
-    "fa": "فعال",
-    "ru": "Включено",
-  },
-  "This Computer": {
-    "zh-Hans": "本机",
-    "zh-Hant": "本機",
-    "fa": "این رایانه",
-    "ru": "Этот компьютер",
-  },
-  "Profiles": {
-    "zh-Hans": "配置",
-    "zh-Hant": "配置",
-    "fa": "پیکربندی",
-    "ru": "Конфигурация",
-  },
-  "Profile": {
-    "zh-Hans": "配置",
-    "zh-Hant": "配置",
-    "fa": "پیکربندی",
-    "ru": "Конфигурация",
-  },
-  "New Profile": {
-    "zh-Hans": "新建配置",
-    "zh-Hant": "新建配置",
-    "fa": "پیکربندی جدید",
-    "ru": "Новая конфигурация",
-  },
-  "Name": {
-    "zh-Hans": "名称",
-    "zh-Hant": "名稱",
-    "fa": "نام",
-    "ru": "Имя",
-  },
-  "Type": {
-    "zh-Hans": "类型",
-    "zh-Hant": "類型",
-    "fa": "نوع",
-    "ru": "Тип",
-  },
-  "Local": {
-    "zh-Hans": "本地",
-    "zh-Hant": "本地",
-    "fa": "محلی",
-    "ru": "Локальный",
-  },
-  "Remote": {
-    "zh-Hans": "远程",
-    "zh-Hant": "遠程",
-    "fa": "راه‌دور",
-    "ru": "Удаленный",
-  },
-  "URL": {
-    "zh-Hans": "URL",
-    "zh-Hant": "URL",
-    "fa": "URL",
-    "ru": "URL",
-  },
-  "Auto Update": {
-    "zh-Hans": "自动更新",
-    "zh-Hant": "自動更新",
-    "fa": "به‌روزرسانی خودکار",
-    "ru": "Автообновление",
-  },
-  "Auto Update Interval": {
-    "zh-Hans": "自动更新间隔",
-    "zh-Hant": "自動更新間隔",
-    "fa": "بازه به‌روزرسانی خودکار",
-    "ru": "Интервал автообновления",
-  },
-  "Last Updated": {
-    "zh-Hans": "最后更新",
-    "zh-Hant": "最後更新",
-    "fa": "آخرین به‌روزرسانی",
-    "ru": "Последнее обновление",
-  },
-  "Edit": {
-    "zh-Hans": "编辑",
-    "zh-Hant": "編輯",
-    "fa": "ویرایش",
-    "ru": "Изменить",
-  },
-  "Rename": {
-    "zh-Hans": "重命名",
-    "zh-Hant": "重新命名",
-    "fa": "تغییر نام",
-    "ru": "Переименовать",
-  },
-  "Delete": {
-    "zh-Hans": "删除",
-    "zh-Hant": "刪除",
-    "fa": "حذف",
-    "ru": "Удалить",
-  },
-  "Copy": {
-    "zh-Hans": "复制",
-    "zh-Hant": "複製",
-    "fa": "کپی",
-    "ru": "Копировать",
-  },
-  "Paste": {
-    "zh-Hans": "粘贴",
-    "zh-Hant": "貼上",
-    "fa": "چسباندن",
-    "ru": "Вставить",
-  },
-  "Share": {
-    "zh-Hans": "分享",
-    "zh-Hant": "分享",
-    "fa": "اشتراک‌گذاری",
-    "ru": "Поделиться",
-  },
-  "Import": {
-    "zh-Hans": "导入",
-    "zh-Hant": "導入",
-    "fa": "وارد کردن",
-    "ru": "Импорт",
-  },
-  "Export": {
-    "zh-Hans": "导出",
-    "zh-Hant": "導出",
-    "fa": "خروجی گرفتن",
-    "ru": "Экспорт",
-  },
-  "Check": {
-    "zh-Hans": "检查",
-    "zh-Hant": "檢查",
-    "fa": "بررسی",
-    "ru": "Проверить",
-  },
-  "Format": {
-    "zh-Hans": "格式化",
-    "zh-Hant": "格式化",
-    "fa": "قالب‌بندی",
-    "ru": "Форматировать",
-  },
-  "Save": {
-    "zh-Hans": "保存",
-    "zh-Hant": "保存",
-    "fa": "ذخیره",
-    "ru": "Сохранить",
-  },
-  "Update": {
-    "zh-Hans": "更新",
-    "zh-Hant": "更新",
-    "fa": "به‌روزرسانی",
-    "ru": "Обновить",
-  },
-  "Create": {
-    "zh-Hans": "创建",
-    "zh-Hant": "創建",
-    "fa": "ایجاد",
-    "ru": "Создать",
-  },
-  "Cancel": {
-    "zh-Hans": "取消",
-    "zh-Hant": "取消",
-    "fa": "لغو",
-    "ru": "Отмена",
-  },
-  "Move Up": {
-    "zh-Hans": "上移",
-    "zh-Hant": "上移",
-    "fa": "انتقال به بالا",
-    "ru": "Вверх",
-  },
-  "Move Down": {
-    "zh-Hans": "下移",
-    "zh-Hant": "下移",
-    "fa": "انتقال به پایین",
-    "ru": "Вниз",
-  },
-  "Done": {
-    "zh-Hans": "完成",
-    "zh-Hant": "完成",
-    "fa": "انجام شد",
-    "ru": "Готово",
-  },
-  "No profiles": {
-    "zh-Hans": "没有配置",
-    "zh-Hant": "沒有配置",
-    "fa": "پیکربندی‌ای وجود ندارد",
-    "ru": "Нет конфигураций",
-  },
-  "No profile selected": {
-    "zh-Hans": "未选择配置",
-    "zh-Hant": "未選擇配置",
-    "fa": "پیکربندی انتخاب نشده است",
-    "ru": "Конфигурация не выбрана",
-  },
-  "Open": {
-    "zh-Hans": "打开",
-    "zh-Hant": "打開",
-    "fa": "باز کردن",
-    "ru": "Открыть",
-  },
-  "Quit": {
-    "zh-Hans": "退出",
-    "zh-Hant": "退出",
-    "fa": "خروج",
-    "ru": "Выйти",
-  },
-  "Group": {
-    "zh-Hans": "分组",
-    "zh-Hant": "分組",
-    "fa": "گروه",
-    "ru": "Группа",
-  },
-  "Close All Connections": {
-    "zh-Hans": "关闭所有连接",
-    "zh-Hant": "關閉所有連接",
-    "fa": "بستن همه اتصال‌ها",
-    "ru": "Закрыть все подключения",
-  },
-  "URLTest All": {
-    "zh-Hans": "全部测速",
-    "zh-Hant": "全部測速",
-    "fa": "آزمایش همه",
-    "ru": "Тест всех",
-  },
-  "URLTest": {
-    "zh-Hans": "测速",
-    "zh-Hant": "測速",
-    "fa": "آزمایش",
-    "ru": "Тест",
-  },
-  "Start At Login": {
-    "zh-Hans": "开机启动",
-    "zh-Hant": "開機啟動",
-    "fa": "اجرا هنگام ورود",
-    "ru": "Запуск при входе",
-  },
-  "Real-time Speed": {
-    "zh-Hans": "实时速率",
-    "zh-Hant": "實時速率",
-    "fa": "نرخ لحظه‌ای",
-    "ru": "Текущая скорость",
-  },
-  "Disabled": {
-    "zh-Hans": "已禁用",
-    "zh-Hant": "已禁用",
-    "fa": "غیرفعال",
-    "ru": "Отключено",
-  },
-  "Unified": {
-    "zh-Hans": "统一",
-    "zh-Hant": "統一",
-    "fa": "یکپارچه",
-    "ru": "Единый",
-  },
-  "Import Remote Profile": {
-    "zh-Hans": "导入远程配置",
-    "zh-Hant": "導入遠程配置",
-    "fa": "وارد کردن پیکربندی راه‌دور",
-    "ru": "Импорт удаленной конфигурации",
-  },
-  "Service Setup": {
-    "zh-Hans": "服务安装",
-    "zh-Hant": "服務安裝",
-    "fa": "راه‌اندازی سرویس",
-    "ru": "Установка службы",
-  },
-  "Connecting...": {
-    "zh-Hans": "连接中…",
-    "zh-Hant": "連接中…",
-    "fa": "در حال اتصال…",
-    "ru": "Подключение…",
-  },
-  "Retry": {
-    "zh-Hans": "重试",
-    "zh-Hant": "重試",
-    "fa": "تلاش مجدد",
-    "ru": "Повторить",
-  },
-  "The sing-box service is not installed": {
-    "zh-Hans": "sing-box 服务未安装",
-    "zh-Hant": "sing-box 服務未安裝",
-    "fa": "سرویس sing-box نصب نشده است",
-    "ru": "Служба sing-box не установлена",
-  },
-  "The sing-box service is not running": {
-    "zh-Hans": "sing-box 服务未运行",
-    "zh-Hant": "sing-box 服務未運行",
-    "fa": "سرویس sing-box در حال اجرا نیست",
-    "ru": "Служба sing-box не запущена",
-  },
-  "Incompatible service version": {
-    "zh-Hans": "服务版本不兼容",
-    "zh-Hant": "服務版本不兼容",
-    "fa": "نسخه سرویس ناسازگار است",
-    "ru": "Несовместимая версия службы",
-  },
-  "Install": {
-    "zh-Hans": "安装",
-    "zh-Hant": "安裝",
-    "fa": "نصب",
-    "ru": "Установить",
-  },
-  "Upgrade": {
-    "zh-Hans": "升级",
-    "zh-Hant": "升級",
-    "fa": "ارتقا",
-    "ru": "Обновить",
-  },
-} satisfies Record<string, DesktopMessage>;
+  "Start Service": "启动服务",
+  "Stop Service": "停止服务",
+  "Service starting...": "服务正在启动…",
+  "Service stopping...": "服务正在停止…",
+  "Routing Mode": "路由模式",
+  "Rule": "规则",
+  "Global": "全局",
+  "Direct": "直连",
+  "System Proxy": "系统代理",
+  "TUN Mode": "TUN 模式",
+  "Reload profile": "重新加载当前配置",
+  "More": "更多",
+  "Connections": "连接",
+  "Logs": "日志",
+  "Settings": "设置",
+  "Open data directory": "打开数据目录",
+  "Unavailable": "暂不可用",
+  "Start": "启动",
+  "Stop": "停止",
+  "Service": "服务",
+  "System HTTP Proxy": "系统 HTTP 代理",
+  "Enabled": "已启用",
+  "This Computer": "本机",
+  "Profiles": "配置",
+  "Profile": "配置",
+  "New Profile": "新建配置",
+  "Name": "名称",
+  "Type": "类型",
+  "Local": "本地",
+  "Remote": "远程",
+  "URL": "URL",
+  "Auto Update": "自动更新",
+  "Auto Update Interval": "自动更新间隔",
+  "Last Updated": "最后更新",
+  "Edit": "编辑",
+  "Rename": "重命名",
+  "Delete": "删除",
+  "Copy": "复制",
+  "Paste": "粘贴",
+  "Share": "分享",
+  "Import": "导入",
+  "Export": "导出",
+  "Check": "检查",
+  "Format": "格式化",
+  "Save": "保存",
+  "Update": "更新",
+  "Create": "创建",
+  "Cancel": "取消",
+  "Move Up": "上移",
+  "Move Down": "下移",
+  "Done": "完成",
+  "No profiles": "没有配置",
+  "No profile selected": "未选择配置",
+  "Open": "打开",
+  "Quit": "退出",
+  "Group": "分组",
+  "Close All Connections": "关闭所有连接",
+  "URLTest All": "全部测速",
+  "URLTest": "测速",
+  "Start At Login": "开机启动",
+  "Real-time Speed": "实时速率",
+  "Disabled": "已禁用",
+  "Unified": "统一",
+  "Import Remote Profile": "导入远程配置",
+  "Service Setup": "服务安装",
+  "Connecting...": "连接中…",
+  "Retry": "重试",
+  "The sing-box service is not installed": "sing-box 服务未安装",
+  "The sing-box service is not running": "sing-box 服务未运行",
+  "Incompatible service version": "服务版本不兼容",
+  "Install": "安装",
+  "Upgrade": "升级",
+} as const;
 
 export type DesktopMessageKey = keyof typeof DESKTOP_TRANSLATIONS;
 
 export function translateDesktop(language: DesktopLanguage, key: DesktopMessageKey): string {
-  if (language === "en") {
-    return key;
-  }
-  return DESKTOP_TRANSLATIONS[key][language] ?? key;
+  return language === "en" ? key : DESKTOP_TRANSLATIONS[key];
 }
 
 export function desktopLanguageFromLocale(locale: string): DesktopLanguage {
-  const lower = locale.toLowerCase();
-  if (lower.startsWith("zh")) {
-    if (/hant|tw|hk|mo/.test(lower)) {
-      return "zh-Hant";
-    }
-    return "zh-Hans";
+  return /^zh(?:[-_]|$)/iu.test(locale) ? "zh-Hans" : "en";
+}
+
+/** Keep old explicit choices deterministic when their translations are removed. */
+export function preferredDesktopLanguage(preference: unknown, systemLocale: string): DesktopLanguage {
+  if (preference === "en" || preference === "zh-Hans" || preference === "zh-Hant" || preference === "fa" || preference === "ru") {
+    return desktopLanguageFromLocale(preference);
   }
-  if (lower.startsWith("fa")) {
-    return "fa";
-  }
-  if (lower.startsWith("ru")) {
-    return "ru";
-  }
-  return "en";
+  return desktopLanguageFromLocale(systemLocale);
 }

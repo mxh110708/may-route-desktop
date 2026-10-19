@@ -50,6 +50,7 @@ jobs:
       - run: pnpm test:tray-menu
       - run: pnpm test:background-idle
       - run: pnpm test:renderer-loading
+      - run: pnpm test:localization
       - run: pnpm test:system-proxy-recovery
       - run: pnpm test:installer-preflight
       - run: pnpm typecheck

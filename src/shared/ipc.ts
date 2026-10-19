@@ -172,10 +172,16 @@ export interface PriorityPanelState {
   lastSwitch: { from: string; to: string; at: string; reason: string } | null;
 }
 
+export type PrioritySummaryState = Pick<PriorityPanelState,
+  "running" | "directMode" | "active" | "preferred" | "monitoredSelected" | "needsReload" | "selected"> & {
+  settings: { group: string };
+};
+
 export interface ProfilesBridge {
   proxyPortState(): Promise<import("./proxyPorts").ProxyPortPanelState>;
   proxyPortSave(ports: import("./proxyPorts").ProxyPortSettings, revision: string, profileId: string, running: boolean): Promise<import("./proxyPorts").ProxyPortPanelState>;
   priorityState(): Promise<PriorityPanelState>;
+  prioritySummary(): Promise<PrioritySummaryState>;
   prioritySave(settings: PriorityPanelState["settings"], revision: string, profileId: string | null): Promise<PriorityPanelState>;
   priorityApply(revision: string, profileId: string | null): Promise<void>;
   list(): Promise<ProfilesState>;

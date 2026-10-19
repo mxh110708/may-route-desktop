@@ -25,9 +25,6 @@ files:
 electronLanguages:
   - en-US
   - zh-CN
-  - zh-TW
-  - fa
-  - ru
 extraResources:
   - from: dashboard/src/assets/fonts/LXGWWenKai-OFL.txt
     to: licenses/LXGWWenKai-OFL.txt
@@ -86,8 +83,6 @@ nsis:
   installerLanguages:
     - en_US
     - zh_CN
-    - zh_TW
-    - ru_RU
   license: LICENSE
   perMachine: true
   allowToChangeInstallationDirectory: false

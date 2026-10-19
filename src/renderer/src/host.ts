@@ -202,6 +202,7 @@ export function createDesktopHost(): DesktopHost {
       proxyPortState: () => bridge.profiles.proxyPortState(),
       proxyPortSave: (ports, revision, profileId, running) => bridge.profiles.proxyPortSave(ports, revision, profileId, running),
       priorityState: () => bridge.profiles.priorityState(),
+      prioritySummary: () => bridge.profiles.prioritySummary(),
       prioritySave: (settings, revision, profileId) => bridge.profiles.prioritySave(settings, revision, profileId),
       priorityApply: (revision, profileId) => bridge.profiles.priorityApply(revision, profileId),
       reapplySystemProxy: () => bridge.profiles.reapplySystemProxy(),

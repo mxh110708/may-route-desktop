@@ -23,10 +23,21 @@ export function auditMainLoading(chunks: Chunk[]) {
   if (owners.length === 0 || owners.some(chunk => reached.has(chunk.fileName))) {
     throw new Error("Linux tray must remain bundled and deferred");
   }
-  return { initial: [...reached], linuxTray: owners.map(chunk => chunk.fileName) };
+  const optional = Object.fromEntries(["interfaceFonts", "reportHandlers"].map(name => {
+    const modules = chunks.filter(chunk => Object.keys(chunk.modules).some(id => id.replaceAll("\\", "/").endsWith(`/main/${name}.ts`)));
+    if (modules.length === 0 || modules.some(chunk => reached.has(chunk.fileName))) {
+      throw new Error(`Optional main module must remain bundled and deferred: ${name}`);
+    }
+    return [name, modules.map(chunk => chunk.fileName)];
+  }));
+  return { initial: [...reached], linuxTray: owners.map(chunk => chunk.fileName), optional };
 }
 
 const deferredFeatures = {
+  streamData: "/api/streamData.ts",
+  retainedData: "/api/retainedData.ts",
+  interfaceFont: "/assets/fonts/wenkai/parts.ts",
+  fontLoader: "/app/bundledInterfaceFont.ts",
   terminal: "/views/TerminalRuntime.tsx",
   releaseNotes: "/components/GitHubMarkdownContent.tsx",
   settings: "/views/SettingsView.tsx",

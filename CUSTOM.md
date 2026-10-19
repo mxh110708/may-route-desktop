@@ -36,12 +36,32 @@ distribution.
 
 ## Interface fonts and tray
 
+UI, native menus, core status messages and installers support only English and
+Simplified Chinese. Automatic detection maps Chinese regional variants to
+Simplified Chinese and otherwise falls back to English. Old Traditional Chinese
+preferences use Simplified Chinese; old Persian/Russian preferences use English.
+Translation catalogs are flat strings; unused locale dictionaries, plural-rule
+caches, RTL layouts and Chromium/installer locale packs are removed. See
+[two-language validation](docs/TWO-LANGUAGES-2026-10-18.zh-CN.md).
+
 The original interface font remains the default. LXGW WenKai is bundled as an
 optional font with its complete OFL license. TTF/OTF imports are limited to
 32 MiB, validated and copied into `interface-fonts` inside the application user
 data directory; fonts are never installed into Windows. The main interface and
 renderer-based tray share the saved choice. An unavailable font falls back to
 the original font. Windows native menus use the system menu font.
+
+WenKai keeps complete character coverage and the unchanged original TTF for
+recovery, while loading common text and remaining CJK ranges as local WOFF2
+segments. Range definitions are deferred until WenKai is selected. Coverage,
+source hashes and runtime ranges are checked by `pnpm test:interface-fonts`.
+See [resident-memory verification](docs/RESIDENT-MEMORY-2026-10-18.zh-CN.md)
+for measurements, shaping checks and the boundaries of the isolated comparison.
+Connection snapshots now share unchanged pages, and bounded stream histories use
+an adaptive array path when actively displayed. Closed log pages retain compact,
+lossless diagnostics for offline reopening. Font management and report handlers
+load on first use. See [stream-memory verification](docs/STREAM-MEMORY-2026-10-19.zh-CN.md)
+for compatibility checks and measurements.
 
 On Windows, one left click dismisses the tray menu and shows or restores the
 main window. Right click manually opens a native Electron Menu with ten root
@@ -191,3 +211,7 @@ revision when the base version does not change.
 
 This project remains under the upstream license in `LICENSE` and is not an
 official SagerNet distribution.
+
+调优保留与回退决策见 [2026-10-19 多轮性能复核](docs/PERFORMANCE-AUDIT-2026-10-19.zh-CN.md)，不能将各轮专项收益相加或当作所有状态的固定降幅。
+
+已发布及待发布改动的逐项新测量、保留理由和成本见 [2026-10-19 逐项实测](docs/INDIVIDUAL-PERFORMANCE-2026-10-19.zh-CN.md)；旧 GPU CPU 异常的定位与修正口径见 [CPU 计时复核](docs/GPU-MEASUREMENT-2026-10-19.zh-CN.md)。

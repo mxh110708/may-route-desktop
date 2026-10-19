@@ -3,7 +3,6 @@ import { BrowserWindow, app, ipcMain, shell } from "electron";
 import { APP_CALL } from "../shared/ipc";
 import type { ProfilesResult } from "../shared/ipc";
 import { shareFile } from "./sharing";
-import { importInterfaceFont, listInterfaceFonts, readInterfaceFont, selectInterfaceFont } from "./interfaceFonts";
 import { resizeTrayMenu } from "./trayMenu";
 
 export function registerApplication(showMainWindow: (route?: string) => void) {
@@ -15,16 +14,16 @@ export function registerApplication(showMainWindow: (route?: string) => void) {
           case "version":
             return { ok: true, value: __APP_VERSION__ };
           case "listFonts":
-            return { ok: true, value: await listInterfaceFonts() };
+            return { ok: true, value: await (await import("./interfaceFonts")).listInterfaceFonts() };
           case "readFont":
-            return { ok: true, value: await readInterfaceFont(arguments_[0]) };
+            return { ok: true, value: await (await import("./interfaceFonts")).readInterfaceFont(arguments_[0]) };
           case "selectFont":
-            await selectInterfaceFont(arguments_[0]);
+            await (await import("./interfaceFonts")).selectInterfaceFont(arguments_[0]);
             return { ok: true, value: undefined };
           case "importFont": {
             const window = BrowserWindow.fromWebContents(event.sender);
             if (!window) throw new Error("Font import window unavailable.");
-            return { ok: true, value: await importInterfaceFont(window) };
+            return { ok: true, value: await (await import("./interfaceFonts")).importInterfaceFont(window) };
           }
           case "openDataDirectory": {
             const error = await shell.openPath(app.getPath("userData"));

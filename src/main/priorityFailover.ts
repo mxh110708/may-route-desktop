@@ -7,29 +7,41 @@ export interface Candidate { tag: string; port: number }
 export function priorityGroups(content: string): { tag: string; nodes: string[] }[] {
   const config = JSON.parse(content);
   const outbounds = Array.isArray(config.outbounds) ? config.outbounds : [];
+  const concrete = new Set(outbounds.filter((node: any) => typeof node?.tag === "string" &&
+    typeof node.type === "string" && !["direct", "block", "selector", "urltest", "dns"].includes(node.type))
+    .map((node: any) => node.tag));
   return outbounds.filter((group: any) => group.type === "selector" && typeof group.tag === "string" &&
     Array.isArray(group.outbounds) && group.outbounds.length > 0 &&
-    group.outbounds.every((tag: unknown) => typeof tag === "string" &&
-      outbounds.some((node: any) => node.tag === tag && typeof node.type === "string" &&
-        !["direct", "block", "selector", "urltest", "dns"].includes(node.type))))
+    group.outbounds.every((tag: unknown) => typeof tag === "string" && concrete.has(tag)))
     .map((group: any) => ({ tag: group.tag, nodes: [...new Set<string>(group.outbounds)] }));
 }
 
 export function reconcilePrioritySettings(content: string, settings: PrioritySettings): PrioritySettings {
-  const group = priorityGroups(content).find((group) => group.tag === settings.group);
+  return reconcilePriorityGroups(priorityGroups(content), settings);
+}
+
+export function reconcilePriorityGroups(groups: { tag: string; nodes: string[] }[], settings: PrioritySettings): PrioritySettings {
+  const group = groups.find((group) => group.tag === settings.group);
   // Preserve an intentional subset; newly introduced nodes remain available in
   // the editor instead of silently opting excluded nodes into monitoring.
-  const order = group ? settings.order.filter((tag) => group.nodes.includes(tag)) : [];
+  const available = new Set(group?.nodes);
+  const order = settings.order.filter((tag) => available.has(tag));
   return { ...settings, order };
 }
 
 export function priorityTags(content: string, settings: PrioritySettings = DEFAULT_PRIORITY_SETTINGS): string[] {
   if (!settings.enabled) return [];
-  const group = priorityGroups(content).find(group => group.tag === settings.group);
+  return priorityTagsFromGroups(priorityGroups(content), settings);
+}
+
+export function priorityTagsFromGroups(groups: { tag: string; nodes: string[] }[], settings: PrioritySettings): string[] {
+  if (!settings.enabled) return [];
+  const group = groups.find(group => group.tag === settings.group);
   if (!group) return [];
   const available = group.nodes;
   if (!settings.order.length) return available;
-  const order = reconcilePrioritySettings(content, settings).order;
+  const nodes = new Set(available);
+  const order = settings.order.filter(tag => nodes.has(tag));
   return order.length ? order : available;
 }
 
