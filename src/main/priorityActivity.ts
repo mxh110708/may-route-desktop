@@ -1,3 +1,5 @@
+import { parseConfig } from "./runtimeConfig";
+
 export interface PriorityActivityConnection {
   id: string; inbound: string; source?: string; outbound: string; fromOutbound?: string; chainList: string[];
   createdAt?: bigint; closedAt?: bigint;
@@ -10,13 +12,34 @@ export interface PriorityActivityEvent {
 /** Keep only live IDs and group tags. Never retain endpoints, domains or full connections. */
 export class PriorityActivity {
   private groups = new Set<string>();
+  private detourGroups = new Map<string, string>();
   private connections = new Map<string, string[]>();
   private recent = new Map<string, number>();
   private internalSources = new Map<string, number>();
   available = false;
   constructor(readonly graceMs = 60000) {}
-  configure(groups: { tag: string; nodes: string[] }[]): void {
+  configure(groups: { tag: string; nodes: string[] }[], content?: string): void {
     this.reset(); this.groups = new Set(groups.map(group => group.tag));
+    this.detourGroups.clear();
+    if (!content) return;
+    // The core reports selector hops but stops at a concrete outbound. Retain
+    // only explicit fixed detour edges, never credentials or selector members.
+    const outbounds = parseConfig(content).outbounds;
+    const detours = new Map<string, string>();
+    if (Array.isArray(outbounds)) for (const outbound of outbounds) {
+      if (outbound && typeof outbound.tag === "string" && typeof outbound.detour === "string") detours.set(outbound.tag, outbound.detour);
+    }
+    for (const tag of detours.keys()) {
+      const seen = new Set<string>();
+      let next = tag;
+      while (!seen.has(next)) {
+        if (this.groups.has(next)) { this.detourGroups.set(tag, next); break; }
+        seen.add(next);
+        const detour = detours.get(next);
+        if (!detour) break;
+        next = detour;
+      }
+    }
   }
   reset(): void { this.connections.clear(); this.recent.clear(); this.internalSources.clear(); this.available = false; }
   disconnected(): void { this.connections.clear(); this.available = false; }
@@ -29,9 +52,14 @@ export class PriorityActivity {
     const port = connection.source?.slice(connection.source.lastIndexOf(":") + 1);
     if (port && /^(127\.0\.0\.1:|\[::1\]:)/u.test(connection.source ?? "") && now - (this.internalSources.get(port) ?? -Infinity) <= this.graceMs) return [];
     const chain = [...connection.chainList, connection.outbound, connection.fromOutbound ?? ""];
-    // A concrete node used directly does not prove a selector was traversed;
-    // changing that selector would not repair the direct reference anyway.
-    return [...new Set(chain.filter(tag => this.groups.has(tag)))];
+    // Membership alone does not prove a selector was traversed. A configured
+    // fixed detour does; changing its entry selector affects this exit's route.
+    const used = new Set<string>();
+    for (const tag of chain) {
+      const group = this.groups.has(tag) ? tag : this.detourGroups.get(tag);
+      if (group) used.add(group);
+    }
+    return [...used];
   }
   ingest(message: { reset: boolean; events: PriorityActivityEvent[] }, now: number): void {
     if (message.reset) { this.connections.clear(); this.recent.clear(); }

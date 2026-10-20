@@ -38,7 +38,9 @@ async function proxy(): Promise<number> {
     socket.once("close", () => upstream.destroy());
   }); return listen(server);
 }
-const activity = new PriorityActivity(); activity.configure([{ tag: "West", nodes: ["w"] }, { tag: "HK", nodes: ["h"] }, { tag: "Europe", nodes: ["e"] }]);
+const groups = [{ tag: "West", nodes: ["w"] }, { tag: "HK", nodes: ["h"] }, { tag: "Europe", nodes: ["e"] }];
+const activity = new PriorityActivity(), withoutDetours = new PriorityActivity();
+withoutDetours.configure(groups);
 const [rpcPort, mixedPort, probeW, probeH, probeE] = await allocateProbePorts(5);
 const daemon = spawn(core, ["run", "--working-directory", directory, "--listen", `127.0.0.1:${rpcPort}`], { windowsHide: true, stdio: "ignore" });
 const transport = createGrpcTransport({ baseUrl: `http://127.0.0.1:${rpcPort}` });
@@ -51,7 +53,8 @@ async function wait(check: () => boolean, label: string): Promise<void> {
 }
 async function tunnel(port: number, target: number, internal = false): Promise<Socket> {
   const socket = connect(port, "127.0.0.1"); sockets.add(socket); socket.on("error", () => {}); socket.once("close", () => sockets.delete(socket));
-  await once(socket, "connect"); if (internal) activity.ignoreSource(socket.localPort!, Date.now());
+  await once(socket, "connect");
+  if (internal) { activity.ignoreSource(socket.localPort!, Date.now()); withoutDetours.ignoreSource(socket.localPort!, Date.now()); }
   socket.write(`CONNECT 127.0.0.1:${target} HTTP/1.1\r\nHost: 127.0.0.1:${target}\r\n\r\n`);
   const [response] = await once(socket, "data"); assert.match(String(response), /200/); socket.write("fixture"); return socket;
 }
@@ -62,23 +65,34 @@ try {
   const targetW = await listen(createServer(socket => socket.on("data", data => socket.write(data))));
   const targetH = await listen(createServer(socket => socket.on("data", data => socket.write(data))));
   const targetE = await listen(createServer(socket => socket.on("data", data => socket.write(data))));
-  const proxyW = await proxy(), proxyH = await proxy();
+  const targetExit = await listen(createServer(socket => socket.on("data", data => socket.write(data))));
+  const proxyW = await proxy(), proxyH = await proxy(), proxyExit = await proxy();
   const broken = createHTTPServer(); broken.on("connect", (_request, socket) => socket.end("HTTP/1.1 502 Bad Gateway\r\n\r\n"));
   const proxyE = await listen(broken);
   const content = JSON.stringify({ log: { level: "error" }, inbounds: [{ type: "mixed", tag: "business", listen: "127.0.0.1", listen_port: mixedPort, set_system_proxy: false }],
     outbounds: [{ type: "selector", tag: "West", outbounds: ["w"] }, { type: "selector", tag: "HK", outbounds: ["h"] }, { type: "selector", tag: "Europe", outbounds: ["e"] },
+      { type: "selector", tag: "AI", outbounds: ["exit", "West"] },
+      { type: "http", tag: "exit", server: "127.0.0.1", server_port: proxyExit, detour: "West" },
       { type: "http", tag: "w", server: "127.0.0.1", server_port: proxyW }, { type: "http", tag: "h", server: "127.0.0.1", server_port: proxyH },
       { type: "http", tag: "e", server: "127.0.0.1", server_port: proxyE }],
-    route: { rules: [{ port: [targetH], action: "route", outbound: "HK" }, { port: [targetE], action: "route", outbound: "Europe" }], final: "West" } });
+    route: { rules: [{ port: [targetH], action: "route", outbound: "HK" }, { port: [targetE], action: "route", outbound: "Europe" },
+      { port: [targetExit], action: "route", outbound: "AI" }], final: "West" } });
+  activity.configure(groups, content);
   await desktop.startService({ configContent: addProbeRoutes(content, [probeW, probeH, probeE], parsePrioritySettings({ group: "West" }), true).content,
     options: { oomKillerDisabled: true } }, { timeoutMs: 10000 }); launched = true;
   stream = (async () => { try { for await (const batch of started.subscribeConnections({ interval: 100_000_000n }, { signal: abort.signal })) {
     for (const event of batch.events) if (event.connection) chains.push([...event.connection.chainList]);
     activity.ingest(batch, Date.now());
+    withoutDetours.ingest(batch, Date.now());
   } } catch (error) { if (!abort.signal.aborted) streamErrors.push(error); } })();
   await wait(() => activity.available, "connection stream");
   await tunnel(probeW, targetW); await tunnel(probeH, targetH); await tunnel(mixedPort, targetW, true);
   await delay(300); assert.deepEqual(activity.active(Date.now()), [], "own probes must not create activity");
+  // The raw core chain stops at the exit; its fixed detour still uses West.
+  await tunnel(mixedPort, targetExit);
+  await wait(() => activity.active(Date.now()).includes("West"), "AI exit detour activates West");
+  assert.ok(chains.some(chain => chain.includes("AI") && chain.includes("exit") && !chain.includes("West")), "real core reproduces the missing detour hop");
+  assert.deepEqual(withoutDetours.active(Date.now()), [], "the previous selector-only logic misses the same AI traffic");
   await tunnel(mixedPort, targetW); await wait(() => activity.active(Date.now()).includes("West"), "West business");
   assert.deepEqual(activity.active(Date.now()), ["West"]);
   await tunnel(mixedPort, targetH); await wait(() => activity.active(Date.now()).includes("HK"), "HK business");
@@ -86,7 +100,8 @@ try {
   const failed = connect(mixedPort, "127.0.0.1"); sockets.add(failed); failed.on("error", () => {}); failed.on("data", () => {});
   await once(failed, "connect"); failed.write(`CONNECT 127.0.0.1:${targetE} HTTP/1.1\r\nHost: 127.0.0.1:${targetE}\r\n\r\n`);
   await wait(() => activity.active(Date.now()).includes("Europe"), "failed initial connection still marks its used region");
-  const result = { passed: true, chains, groups: activity.active(Date.now()), internalProbesExcluded: true, failedInitialConnectionRecognized: true };
+  const result = { passed: true, chains, groups: activity.active(Date.now()), internalProbesExcluded: true,
+    exitDetourRecognized: true, previousMissReproduced: true, failedInitialConnectionRecognized: true };
   await writeFile(process.env.MAY_PRIORITY_RUNTIME_RESULT || join(directory, "result.json"), JSON.stringify(result, null, 2));
 } finally {
   abort.abort(); await stream;

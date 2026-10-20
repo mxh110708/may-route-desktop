@@ -66,3 +66,38 @@ test("stream reset and profile replacement release old IDs and region state", ()
   a.ingest({ reset: false, events: [event("old"), event("new", ["Europe"], { outbound: "e1" })] }, 2);
   assert.deepEqual(a.active(2), ["Europe"]); assert.equal(a.retainedConnections, 1);
 });
+
+test("a business exit using an explicit entry detour activates that entry without guessing from its node", () => {
+  const a = setup();
+  a.configure(groups, JSON.stringify({ outbounds: [{ tag: "att-exit", type: "shadowsocks", detour: "West" }] }));
+  a.ingest({ reset: true, events: [event("AI", ["att-exit", "AI Services"], { outbound: "att-exit" })] }, 0);
+  assert.deepEqual(a.active(0), ["West"]);
+  a.ingest({ reset: false, events: [{ type: 1, id: "AI", downlinkDelta: 5n }] }, 60000);
+  assert.deepEqual(a.active(61000), ["West"]);
+  assert.deepEqual(a.active(120001), []);
+  a.ingest({ reset: false, events: [event("direct-node", [], { outbound: "h1" })] }, 120001);
+  assert.deepEqual(a.active(120001), []);
+});
+
+test("nested fixed detours resolve independently, cycles and unused selector members do not create activity", () => {
+  const a = setup();
+  a.configure(groups, JSON.stringify({ outbounds: [
+    { tag: "exit", detour: "bridge" }, { tag: "bridge", detour: "West" }, { tag: "hk-exit", detour: "HK" },
+    { tag: "cycle-a", detour: "cycle-b" }, { tag: "cycle-b", detour: "cycle-a" },
+    { tag: "Business", type: "selector", outbounds: ["West", "HK"] },
+  ] }));
+  a.ingest({ reset: true, events: [event("unknown", ["Business", "cycle-a"], { outbound: "missing" })] }, 0);
+  assert.deepEqual(a.active(0), []);
+  a.ingest({ reset: false, events: [event("AI", ["Business", "exit"], { outbound: "exit" }), event("web", ["hk-exit"], { outbound: "hk-exit" })] }, 1);
+  assert.deepEqual(a.active(1), ["West", "HK"]);
+});
+
+test("probe exclusions apply before fixed-detour activity and configuration replacement drops old detours", () => {
+  const a = setup(), content = JSON.stringify({ outbounds: [{ tag: "exit", detour: "West" }] });
+  a.configure(groups, content); a.ignoreSource(43210, 0);
+  a.ingest({ reset: true, events: [event("probe", ["exit"], { inbound: "may-priority-probe-0", source: "127.0.0.1:43211" }), event("health", ["exit"])] }, 0);
+  assert.deepEqual(a.active(0), []);
+  a.configure(groups, '{"outbounds":[]}');
+  a.ingest({ reset: true, events: [event("stale", ["exit"], { outbound: "exit" })] }, 1);
+  assert.deepEqual(a.active(1), []);
+});

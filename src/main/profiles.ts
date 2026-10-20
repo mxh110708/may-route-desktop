@@ -577,7 +577,7 @@ async function restorePriorityRuntime(): Promise<void> {
     if (generation !== priorityGeneration) return;
     priorityCandidates = saved.candidates; priorityProfileHash = saved.hash; priorityProfileId = profile;
     priorityCaptureMode = captureModePreference.get(); priorityRuntimeSettings = projection.settings; priorityRuntimeGroups = projection.groups;
-    priorityActivity.configure(priorityRuntimeGroups);
+    priorityActivity.configure(priorityRuntimeGroups, content);
     priorityMonitors.configure(priorityRuntimeGroups, priorityCandidates, projection.settings, savedPriorityPreferences(saved));
     priorityReady = true; syncPriorityActivity();
     recordSystemProxyHealth("priority-monitor-restored", { groups: priorityRuntimeGroups.map(group => group.tag), needsRoutes: priorityMonitors.needsRoutes });
@@ -726,7 +726,7 @@ async function startServiceWithContent(
     if (operationCurrent && !operationCurrent()) throw new Error("端口操作已被其他配置或代理操作取消。");
     priorityCandidates = prepared.candidates;
     priorityRuntimeSettings = settings; priorityRuntimeGroups = priorityGroups(baseContent);
-    priorityActivity.configure(priorityRuntimeGroups);
+    priorityActivity.configure(priorityRuntimeGroups, baseContent);
     priorityMonitors.configure(priorityRuntimeGroups, priorityCandidates, settings, preferred);
     priorityReady = true;
     priorityProfileId = profileId; priorityProfileHash = profileHash; priorityCaptureMode = captureMode;
