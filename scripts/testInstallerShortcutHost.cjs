@@ -2,8 +2,10 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const { createRequire } = require('node:module');
 const spawn = require('cross-spawn');
-const { getMakeNsisPath } = require('app-builder-lib/out/toolsets/windows');
+const builderRequire = createRequire(require.resolve('electron-builder/package.json'));
+const { getMakeNsisPath } = builderRequire('app-builder-lib/out/toolsets/windows');
 
 const repository = path.resolve(__dirname, '..');
 const powershell = path.join(process.env.WINDIR, 'System32/WindowsPowerShell/v1.0/powershell.exe');
