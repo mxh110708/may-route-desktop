@@ -18,7 +18,7 @@ export function configureApplicationPaths(developmentUserDataPath: string): Appl
   }
   const defaultUserDataPath = join(
     app.getPath("appData"),
-    __CUSTOM_BUILD__ ? "mxh-route" : "sing-box",
+    __CUSTOM_BUILD__ ? "may-route" : "sing-box",
   );
   let paths: ApplicationPaths;
   if (developmentUserDataPath !== "") {
@@ -26,7 +26,7 @@ export function configureApplicationPaths(developmentUserDataPath: string): Appl
       userData: developmentUserDataPath,
       daemonData:
         process.platform === "win32"
-          ? "C:\\ProgramData\\mxh-route-daemon"
+          ? "C:\\ProgramData\\may-route-daemon"
           : "/var/lib/sing-box-daemon",
     };
   } else if (process.platform === "win32" && app.isPackaged) {
@@ -40,7 +40,7 @@ export function configureApplicationPaths(developmentUserDataPath: string): Appl
       userData: defaultUserDataPath,
       daemonData:
         process.platform === "win32"
-          ? "C:\\ProgramData\\mxh-route-daemon"
+          ? "C:\\ProgramData\\may-route-daemon"
           : "/var/lib/sing-box-daemon",
     };
   }

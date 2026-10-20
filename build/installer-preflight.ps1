@@ -170,7 +170,7 @@ namespace Box.Installer
         public static string ReadDirectoryMarker(string path)
         {
             SafeFileHandle handle = CreateFile(
-                path + ":mxh-route.installation-id",
+                path + ":may-route.installation-id",
                 GenericRead,
                 ShareRead | ShareWrite | ShareDelete,
                 IntPtr.Zero,
@@ -198,7 +198,7 @@ namespace Box.Installer
         public static void WriteDirectoryMarker(string path, string value)
         {
             SafeFileHandle handle = CreateFile(
-                path + ":mxh-route.installation-id",
+                path + ":may-route.installation-id",
                 GenericWrite,
                 ShareRead,
                 IntPtr.Zero,
@@ -698,7 +698,7 @@ try {
         $commonApplicationData = [Environment]::GetFolderPath(
             [Environment+SpecialFolder]::CommonApplicationData
         )
-        $DaemonWorkingDirectory = Join-Path $commonApplicationData "mxh-route-daemon"
+        $DaemonWorkingDirectory = Join-Path $commonApplicationData "may-route-daemon"
     }
     $workingDirectory = [System.IO.Path]::GetFullPath($DaemonWorkingDirectory)
     if (Test-PathOverlap $InstallationDirectory $workingDirectory) {
@@ -854,7 +854,7 @@ try {
     $expectedIdentities = @{
         "S-1-5-18" = $false
         "S-1-5-32-544" = $false
-        (Get-ServiceSid "mxh-route-daemon") = $false
+        (Get-ServiceSid "may-route-daemon") = $false
     }
     $accessControl = Get-Acl -LiteralPath $workingDirectory
     $owner = $accessControl.GetOwner([System.Security.Principal.SecurityIdentifier]).Value

@@ -156,7 +156,7 @@ test("invalid cache, seed and download fail closed without profile or credential
     await writeFile(join(cacheBundleDirectory, "bundle.json"), "untrusted");
     for (const request of [offlineRequest, (async () => new Response("untrusted")) as typeof fetch]) {
       await assert.rejects(new PublicRuleCache(cacheDirectory, request, seed).prepare(profile), (error: Error) => {
-        assert.match(error.message, /重新安装完整的 MXH Route/u);
+        assert.match(error.message, /重新安装完整的 May Route/u);
         assert.doesNotMatch(error.message, /never-send-this|private\/old|geosite\/cn/u);
         return true;
       });

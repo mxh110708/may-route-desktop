@@ -1,4 +1,4 @@
-# MXH Route 1.14.2-mxh.18
+# May Route 1.14.2-mxh.18
 
 修复自动故障切换在切换地区时丢失自定义顺序的问题，并按业务实际使用的地区组动态监测。
 
@@ -11,8 +11,8 @@
 
 升级前的运行实例如果尚未准备所需探测入口，应用会提示手动重载一次；之后切换查看地区、保存顺序均无需再重载。此版本不会替用户自动安装更新。
 
-已完成主进程和 Dashboard 回归、真实编辑组件的隐藏隔离验证、当前核心连接流量实测，以及类型、样式和正式构建检查。首次业务连接失败仍能识别其使用地区。测试与边界见 [验证记录](https://github.com/mxh110708/mxh-route-desktop/blob/v1.14.2-mxh.18/docs/USAGE-AWARE-FAILOVER-2026-10-19.zh-CN.md)。
+已完成主进程和 Dashboard 回归、真实编辑组件的隐藏隔离验证、当前核心连接流量实测，以及类型、样式和正式构建检查。首次业务连接失败仍能识别其使用地区。测试与边界见 [验证记录](https://github.com/mxh110708/may-route-desktop/blob/v1.14.2-mxh.18/docs/USAGE-AWARE-FAILOVER-2026-10-19.zh-CN.md)。
 
 Windows x64 安装包沿用既有签名身份，并附 SHA-256 校验文件。可在应用中检查更新，或从本页下载安装包，由用户手动更新。
 
-源码：[核心](https://github.com/mxh110708/mxh-route-core/commit/4f5df650cb208ffccfa946104099a29e58b16629)、[界面](https://github.com/mxh110708/mxh-route-dashboard/commit/5dbc828526b168fa930a271fe1a2e5c171678d1a)、[桌面](https://github.com/mxh110708/mxh-route-desktop/tree/v1.14.2-mxh.18)。
+源码：[核心](https://github.com/mxh110708/may-route-core/commit/4f5df650cb208ffccfa946104099a29e58b16629)、[界面](https://github.com/mxh110708/may-route-dashboard/commit/5dbc828526b168fa930a271fe1a2e5c171678d1a)、[桌面](https://github.com/mxh110708/may-route-desktop/tree/v1.14.2-mxh.18)。

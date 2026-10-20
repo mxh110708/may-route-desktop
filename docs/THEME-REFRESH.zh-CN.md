@@ -1,10 +1,10 @@
-# MXH Route 深浅色主题重构
+# May Route 深浅色主题重构
 
 更新：2026-10-17。
 
 ## 设计与范围
 
-界面参考 MXH VPS Deploy 的 `DesktopTheme`，沿用 MXH Route 既有导航、组件与主题偏好：
+界面参考 May VPS Deploy 的 `DesktopTheme`，沿用 May Route 既有导航、组件与主题偏好：
 
 - 深色使用蓝灰内容底色、稍亮卡片、深色侧栏及浅蓝强调色；避免纯黑与亮白控件混在一起。
 - 浅色使用蓝色侧栏、白色内容区、浅灰蓝卡片及蓝色强调色。

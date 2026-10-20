@@ -23,7 +23,7 @@ import { backgroundIdleGate } from "./backgroundIdle";
 
 function workerEndpoint(): string {
   if (process.platform === "win32") {
-    return `\\\\.\\pipe\\mxh-route-worker.${randomUUID()}`;
+    return `\\\\.\\pipe\\may-route-worker.${randomUUID()}`;
   }
   return join(tmpdir(), `sing-box-worker.${randomUUID().slice(0, 8)}.sock`);
 }

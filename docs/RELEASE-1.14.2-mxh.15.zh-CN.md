@@ -1,4 +1,4 @@
-# MXH Route 1.14.2-mxh.15
+# May Route 1.14.2-mxh.15
 
 减少配置处理后和后台空闲时的内存占用，并保留代理运行和日常操作所需的功能。
 
@@ -9,6 +9,6 @@
 
 本地通过 233 项桌面/界面测试、4 项核心内存生命周期测试，以及四种运行状态的隔离验收。测试中的后台停用状态首次唤醒辅助进程约需 0.6 秒。
 
-内存和 CPU 的测试条件、结果及边界见 [性能验收记录](https://github.com/mxh110708/mxh-route-desktop/blob/v1.14.2-mxh.15/docs/MEMORY-PERFORMANCE-2026-10-18.zh-CN.md)。安装包沿用现有签名身份，附 SHA-256 校验文件。
+内存和 CPU 的测试条件、结果及边界见 [性能验收记录](https://github.com/mxh110708/may-route-desktop/blob/v1.14.2-mxh.15/docs/MEMORY-PERFORMANCE-2026-10-18.zh-CN.md)。安装包沿用现有签名身份，附 SHA-256 校验文件。
 
-源码：[核心](https://github.com/mxh110708/mxh-route-core/commit/09fb6465a7ce13e9a39335d3893b4152cbaac458)、[界面](https://github.com/mxh110708/mxh-route-dashboard/commit/79ece355daae4c11730aec130e5d4189ab2f8d0f)、[桌面](https://github.com/mxh110708/mxh-route-desktop/tree/v1.14.2-mxh.15)。
+源码：[核心](https://github.com/mxh110708/may-route-core/commit/09fb6465a7ce13e9a39335d3893b4152cbaac458)、[界面](https://github.com/mxh110708/may-route-dashboard/commit/79ece355daae4c11730aec130e5d4189ab2f8d0f)、[桌面](https://github.com/mxh110708/may-route-desktop/tree/v1.14.2-mxh.15)。

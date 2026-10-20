@@ -39,8 +39,8 @@ export function readApplicationVersion(): string {
     throw new Error("custom-version.json contains no valid revision");
   }
   return versionMetadata.version.includes("-")
-    ? `${versionMetadata.version}.mxh.${customMetadata.revision}`
-    : `${versionMetadata.version}-mxh.${customMetadata.revision}`;
+    ? `${versionMetadata.version}.may.${customMetadata.revision}`
+    : `${versionMetadata.version}-may.${customMetadata.revision}`;
 }
 
 export function readGoVersion(): string {

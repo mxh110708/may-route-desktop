@@ -1384,7 +1384,7 @@ const handlers: Record<
     const context = await localProxyContext();
     if (!context || !context.current()) throw new Error("请先启动系统代理模式。");
     const ownership = await context.read();
-    if (!context.current() || ownership !== "detached") throw new Error("仅能恢复仍指向 MXH Route 的已关闭代理；请先检查其他代理软件。");
+    if (!context.current() || ownership !== "detached") throw new Error("仅能恢复仍指向 May Route 的已关闭代理；请先检查其他代理软件。");
     windowsProxyMonitor.newSession();
     await windowsProxyMonitor.poll();
   },

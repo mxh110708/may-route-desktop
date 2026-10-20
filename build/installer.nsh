@@ -4,7 +4,7 @@ SetFont "Segoe UI" 9
 
 !include WinMessages.nsh
 
-!define INSTALLATION_LAYOUT_REGISTRY_KEY "Software\MXH\Route"
+!define INSTALLATION_LAYOUT_REGISTRY_KEY "Software\May\Route"
 !define TAILDROP_VERB_REGISTRY_KEY "Software\Classes\*\shell\Taildrop"
 
 !ifndef BUILD_UNINSTALLER
@@ -222,8 +222,8 @@ FunctionEnd
   LangString migrateExistingData ${LANG_ENGLISH} "Migrate existing data when a data directory changes"
   LangString migrateExistingData ${LANG_SIMPCHINESE} "数据目录改变时迁移现有数据"
 
-  LangString migratingExistingData ${LANG_ENGLISH} "Migrating existing MXH Route data..."
-  LangString migratingExistingData ${LANG_SIMPCHINESE} "正在迁移现有 MXH Route 数据..."
+  LangString migratingExistingData ${LANG_ENGLISH} "Migrating existing May Route data..."
+  LangString migratingExistingData ${LANG_SIMPCHINESE} "正在迁移现有 May Route 数据..."
 
   LangString dataMigrationFailed ${LANG_ENGLISH} "Could not migrate the existing data (code $1). No old data was removed."
   LangString dataMigrationFailed ${LANG_SIMPCHINESE} "无法迁移现有数据（代码 $1）；旧数据未被删除。"
@@ -243,14 +243,14 @@ FunctionEnd
   LangString invalidApplicationDataDirectory ${LANG_ENGLISH} "The application data directory is invalid, unsafe, or unsupported:$\r$\n$0"
   LangString invalidApplicationDataDirectory ${LANG_SIMPCHINESE} "应用数据目录无效、不安全或不受支持：$\r$\n$0"
 
-  LangString stoppingService ${LANG_ENGLISH} "Stopping the MXH Route service..."
-  LangString stoppingService ${LANG_SIMPCHINESE} "正在停止 MXH Route 守护进程..."
+  LangString stoppingService ${LANG_ENGLISH} "Stopping the May Route service..."
+  LangString stoppingService ${LANG_SIMPCHINESE} "正在停止 May Route 守护进程..."
 
-  LangString checkingRunningApplication ${LANG_ENGLISH} "Checking for running MXH Route applications..."
-  LangString checkingRunningApplication ${LANG_SIMPCHINESE} "正在检查运行中的 MXH Route 应用..."
+  LangString checkingRunningApplication ${LANG_ENGLISH} "Checking for running May Route applications..."
+  LangString checkingRunningApplication ${LANG_SIMPCHINESE} "正在检查运行中的 May Route 应用..."
 
-  LangString closingApplication ${LANG_ENGLISH} "Closing MXH Route..."
-  LangString closingApplication ${LANG_SIMPCHINESE} "正在关闭 MXH Route 应用..."
+  LangString closingApplication ${LANG_ENGLISH} "Closing May Route..."
+  LangString closingApplication ${LANG_SIMPCHINESE} "正在关闭 May Route 应用..."
 
   LangString checkingInstallationLocations ${LANG_ENGLISH} "Checking installation locations..."
   LangString checkingInstallationLocations ${LANG_SIMPCHINESE} "正在检查安装位置..."
@@ -264,8 +264,8 @@ FunctionEnd
   LangString completingDataMigration ${LANG_ENGLISH} "Completing data migration..."
   LangString completingDataMigration ${LANG_SIMPCHINESE} "正在完成数据迁移..."
 
-  LangString stopServiceFailed ${LANG_ENGLISH} "Failed to stop the MXH Route service."
-  LangString stopServiceFailed ${LANG_SIMPCHINESE} "无法停止 MXH Route 守护进程。"
+  LangString stopServiceFailed ${LANG_ENGLISH} "Failed to stop the May Route service."
+  LangString stopServiceFailed ${LANG_SIMPCHINESE} "无法停止 May Route 守护进程。"
 
   LangString previousUninstallerFailed ${LANG_ENGLISH} "The previous uninstaller returned code $R0; continuing the upgrade."
   LangString previousUninstallerFailed ${LANG_SIMPCHINESE} "旧版本卸载程序返回代码 $R0；继续升级。"
@@ -276,26 +276,26 @@ FunctionEnd
   LangString unknownNativeArchitecture ${LANG_ENGLISH} "unknown"
   LangString unknownNativeArchitecture ${LANG_SIMPCHINESE} "未知"
 
-  LangString registeringService ${LANG_ENGLISH} "Registering the MXH Route service..."
-  LangString registeringService ${LANG_SIMPCHINESE} "正在注册 MXH Route 守护进程..."
+  LangString registeringService ${LANG_ENGLISH} "Registering the May Route service..."
+  LangString registeringService ${LANG_SIMPCHINESE} "正在注册 May Route 守护进程..."
 
-  LangString registerServiceFailed ${LANG_ENGLISH} "Failed to register the MXH Route service (code $1)."
-  LangString registerServiceFailed ${LANG_SIMPCHINESE} "无法注册 MXH Route 守护进程（代码 $1）。"
+  LangString registerServiceFailed ${LANG_ENGLISH} "Failed to register the May Route service (code $1)."
+  LangString registerServiceFailed ${LANG_SIMPCHINESE} "无法注册 May Route 守护进程（代码 $1）。"
 
   LangString serviceCommandNoDetails ${LANG_ENGLISH} "The service command produced no diagnostic output."
   LangString serviceCommandNoDetails ${LANG_SIMPCHINESE} "守护进程管理命令未产生诊断输出。"
 
-  LangString copyingApplicationFiles ${LANG_ENGLISH} "Copying MXH Route application files..."
-  LangString copyingApplicationFiles ${LANG_SIMPCHINESE} "正在复制 MXH Route 应用程序文件..."
+  LangString copyingApplicationFiles ${LANG_ENGLISH} "Copying May Route application files..."
+  LangString copyingApplicationFiles ${LANG_SIMPCHINESE} "正在复制 May Route 应用程序文件..."
 
   LangString rollingBackInstallation ${LANG_ENGLISH} "The service setup failed. Removing the installed application..."
   LangString rollingBackInstallation ${LANG_SIMPCHINESE} "守护进程设置失败，正在移除已安装的应用程序..."
 
-  LangString registerServiceFailedRolledBack ${LANG_ENGLISH} "Failed to register the MXH Route service (code $1). The installed application was removed.$\r$\n$\r$\n$3"
-  LangString registerServiceFailedRolledBack ${LANG_SIMPCHINESE} "无法注册 MXH Route 守护进程（代码 $1）。已移除安装的应用程序。$\r$\n$\r$\n$3"
+  LangString registerServiceFailedRolledBack ${LANG_ENGLISH} "Failed to register the May Route service (code $1). The installed application was removed.$\r$\n$\r$\n$3"
+  LangString registerServiceFailedRolledBack ${LANG_SIMPCHINESE} "无法注册 May Route 守护进程（代码 $1）。已移除安装的应用程序。$\r$\n$\r$\n$3"
 
-  LangString registerServiceFailedRollbackFailed ${LANG_ENGLISH} "Failed to register the MXH Route service (code $1), and automatic removal failed (code $2).$\r$\n$\r$\n$3"
-  LangString registerServiceFailedRollbackFailed ${LANG_SIMPCHINESE} "无法注册 MXH Route 守护进程（代码 $1），且自动移除失败（代码 $2）。$\r$\n$\r$\n$3"
+  LangString registerServiceFailedRollbackFailed ${LANG_ENGLISH} "Failed to register the May Route service (code $1), and automatic removal failed (code $2).$\r$\n$\r$\n$3"
+  LangString registerServiceFailedRollbackFailed ${LANG_SIMPCHINESE} "无法注册 May Route 守护进程（代码 $1），且自动移除失败（代码 $2）。$\r$\n$\r$\n$3"
 
   LangString unsafeInstallationDirectory ${LANG_ENGLISH} "The installation directory contains a reparse point or is not a normal directory:$\r$\n$INSTDIR"
   LangString unsafeInstallationDirectory ${LANG_SIMPCHINESE} "安装目录包含重解析点或不是普通目录：$\r$\n$INSTDIR"
@@ -339,8 +339,8 @@ FunctionEnd
   LangString unsafeInstallationConfirmationSubtitle ${LANG_ENGLISH} "Select the acknowledgement below to continue."
   LangString unsafeInstallationConfirmationSubtitle ${LANG_SIMPCHINESE} "必须勾选下方确认项才能继续。"
 
-  LangString unsafeInstallationConfirmationWarning ${LANG_ENGLISH} "The installer and service will skip path security checks and permission hardening. This can allow another program to replace MXH Route data or binaries and elevate privileges to SYSTEM."
-  LangString unsafeInstallationConfirmationWarning ${LANG_SIMPCHINESE} "安装程序和守护进程将跳过路径安全检查与权限加固。这可能允许其他程序替换 MXH Route 数据或程序文件并提权到 SYSTEM。"
+  LangString unsafeInstallationConfirmationWarning ${LANG_ENGLISH} "The installer and service will skip path security checks and permission hardening. This can allow another program to replace May Route data or binaries and elevate privileges to SYSTEM."
+  LangString unsafeInstallationConfirmationWarning ${LANG_SIMPCHINESE} "安装程序和守护进程将跳过路径安全检查与权限加固。这可能允许其他程序替换 May Route 数据或程序文件并提权到 SYSTEM。"
 
   LangString unsafeInstallationAcknowledgement ${LANG_ENGLISH} "I understand and accept this security risk."
   LangString unsafeInstallationAcknowledgement ${LANG_SIMPCHINESE} "我理解并接受此安全风险。"
@@ -373,27 +373,27 @@ FunctionEnd
   LangString repairInstallationAncestorFailed ${LANG_SIMPCHINESE} "无法修复路径权限（代码 $1）。尚未安装任何应用程序文件。"
 
   !ifndef BUILD_UNINSTALLER
-  LangString resetWorkingDirectoryPrompt ${LANG_ENGLISH} "The MXH Route service data directory is invalid:$\r$\n$workingDirectory$\r$\nContinuing will delete this directory so the service can recreate it securely. Continue?"
-  LangString resetWorkingDirectoryPrompt ${LANG_SIMPCHINESE} "MXH Route 守护进程数据目录无效：$\r$\n$workingDirectory$\r$\n继续安装将删除此目录，以便守护进程用安全权限重新创建。是否继续？"
+  LangString resetWorkingDirectoryPrompt ${LANG_ENGLISH} "The May Route service data directory is invalid:$\r$\n$workingDirectory$\r$\nContinuing will delete this directory so the service can recreate it securely. Continue?"
+  LangString resetWorkingDirectoryPrompt ${LANG_SIMPCHINESE} "May Route 守护进程数据目录无效：$\r$\n$workingDirectory$\r$\n继续安装将删除此目录，以便守护进程用安全权限重新创建。是否继续？"
 
-  LangString resettingWorkingDirectory ${LANG_ENGLISH} "Resetting the MXH Route service data directory..."
-  LangString resettingWorkingDirectory ${LANG_SIMPCHINESE} "正在重置 MXH Route 守护进程数据目录..."
+  LangString resettingWorkingDirectory ${LANG_ENGLISH} "Resetting the May Route service data directory..."
+  LangString resettingWorkingDirectory ${LANG_SIMPCHINESE} "正在重置 May Route 守护进程数据目录..."
 
-  LangString resetWorkingDirectoryFailed ${LANG_ENGLISH} "Could not reset the MXH Route service data directory (code $1). No application files were installed."
-  LangString resetWorkingDirectoryFailed ${LANG_SIMPCHINESE} "无法重置 MXH Route 守护进程数据目录（代码 $1）。尚未安装任何应用程序文件。"
+  LangString resetWorkingDirectoryFailed ${LANG_ENGLISH} "Could not reset the May Route service data directory (code $1). No application files were installed."
+  LangString resetWorkingDirectoryFailed ${LANG_SIMPCHINESE} "无法重置 May Route 守护进程数据目录（代码 $1）。尚未安装任何应用程序文件。"
   !endif
 
   LangString preflightFailed ${LANG_ENGLISH} "Could not validate the installation directories (code $1)."
   LangString preflightFailed ${LANG_SIMPCHINESE} "无法验证安装目录（代码 $1）。"
 
-  LangString removingService ${LANG_ENGLISH} "Removing the MXH Route service..."
-  LangString removingService ${LANG_SIMPCHINESE} "正在移除 MXH Route 守护进程..."
+  LangString removingService ${LANG_ENGLISH} "Removing the May Route service..."
+  LangString removingService ${LANG_SIMPCHINESE} "正在移除 May Route 守护进程..."
 
-  LangString removeServiceFailed ${LANG_ENGLISH} "Failed to remove the MXH Route service (code $1).$\r$\n$\r$\n$3"
-  LangString removeServiceFailed ${LANG_SIMPCHINESE} "无法移除 MXH Route 守护进程（代码 $1）。$\r$\n$\r$\n$3"
+  LangString removeServiceFailed ${LANG_ENGLISH} "Failed to remove the May Route service (code $1).$\r$\n$\r$\n$3"
+  LangString removeServiceFailed ${LANG_SIMPCHINESE} "无法移除 May Route 守护进程（代码 $1）。$\r$\n$\r$\n$3"
 
-  LangString removingData ${LANG_ENGLISH} "Removing MXH Route data..."
-  LangString removingData ${LANG_SIMPCHINESE} "正在移除 MXH Route 数据..."
+  LangString removingData ${LANG_ENGLISH} "Removing May Route data..."
+  LangString removingData ${LANG_SIMPCHINESE} "正在移除 May Route 数据..."
 !macroend
 
 !macro setInstallationLayoutRegistryView
@@ -545,7 +545,7 @@ FunctionEnd
   StrCpy $installationFailureTimer ""
   StrCpy $dataMigrationPrepared 0
   SetShellVarContext all
-  StrCpy $daemonDataDirectory "$APPDATA\mxh-route-daemon"
+  StrCpy $daemonDataDirectory "$APPDATA\may-route-daemon"
   StrCpy $0 0
   ReadRegDWORD $0 HKLM "${INSTALLATION_LAYOUT_REGISTRY_KEY}" "LayoutVersion"
   ${if} $0 == 2
@@ -568,14 +568,14 @@ FunctionEnd
     Pop $installationID
   ${endif}
   ${if} $daemonDataDirectory == ""
-    StrCpy $daemonDataDirectory "$APPDATA\mxh-route-daemon"
+    StrCpy $daemonDataDirectory "$APPDATA\may-route-daemon"
   ${endif}
   StrCpy $previousApplicationDataDirectory $applicationDataDirectory
   StrCpy $previousDaemonDataDirectory $daemonDataDirectory
   StrCpy $previousInstallationID $installationID
   ${if} $hasExistingInstallation == 0
     ${if} $applicationDataDirectory == ""
-      StrCpy $applicationDataDirectory "$APPDATA\mxh-route"
+      StrCpy $applicationDataDirectory "$APPDATA\may-route"
     ${endif}
     ${GetParameters} $R0
     ClearErrors
@@ -596,20 +596,20 @@ FunctionEnd
     ${endif}
   ${endif}
   ${if} $applicationDataDirectory == ""
-    StrCpy $fixedApplicationDataDirectory "$APPDATA\mxh-route"
+    StrCpy $fixedApplicationDataDirectory "$APPDATA\may-route"
     StrCpy $userIndependentApplicationData ${BST_CHECKED}
   ${else}
     StrCpy $fixedApplicationDataDirectory $applicationDataDirectory
     StrCpy $userIndependentApplicationData ${BST_UNCHECKED}
   ${endif}
   SetShellVarContext current
-  StrCpy $userApplicationDataDirectory "$APPDATA\mxh-route"
+  StrCpy $userApplicationDataDirectory "$APPDATA\may-route"
   SetShellVarContext all
   StrCpy $defaultInstallationDirectory $INSTDIR
   StrCpy $defaultApplicationDataDirectory $applicationDataDirectory
   StrCpy $defaultDaemonDataDirectory $daemonDataDirectory
   StrCpy $workingDirectory $daemonDataDirectory
-  StrCpy $dataTransitionStatePath "$APPDATA\mxh-route-installer\data-transition.json"
+  StrCpy $dataTransitionStatePath "$APPDATA\may-route-installer\data-transition.json"
   InitPluginsDir
   File /oname=$PLUGINSDIR\installer-preflight.ps1 "${BUILD_RESOURCES_DIR}\installer-preflight.ps1"
   File /oname=$PLUGINSDIR\installer-service.ps1 "${BUILD_RESOURCES_DIR}\installer-service.ps1"
@@ -941,6 +941,7 @@ FunctionEnd
   Function showInstallationDirectoryValidationPage
     ${StrContains} $0 "${APP_FILENAME}" $INSTDIR
     ${if} $0 == ""
+    ${andif} $hasExistingInstallation == 0
       StrCpy $INSTDIR "$INSTDIR\${APP_FILENAME}"
     ${endif}
     StrCpy $allowUnsafeInstallation 0
@@ -1317,6 +1318,7 @@ FunctionEnd
   SetDetailsPrint both
   ${StrContains} $0 "${APP_FILENAME}" $INSTDIR
   ${if} $0 == ""
+  ${andif} $hasExistingInstallation == 0
     StrCpy $INSTDIR "$INSTDIR\${APP_FILENAME}"
   ${endif}
   ${if} $resetWorkingDirectory == 1
@@ -1391,7 +1393,7 @@ FunctionEnd
     ${endif}
   ${endif}
   DetailPrint "$(stoppingService)"
-  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -Command "if (Get-Service -Name mxh-route-daemon -ErrorAction SilentlyContinue) { Stop-Service -Name mxh-route-daemon -Force -ErrorAction Stop; (Get-Service -Name mxh-route-daemon).WaitForStatus([System.ServiceProcess.ServiceControllerStatus]::Stopped, [TimeSpan]::FromSeconds(10)) }"'
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -Command "if (Get-Service -Name may-route-daemon -ErrorAction SilentlyContinue) { Stop-Service -Name may-route-daemon -Force -ErrorAction Stop; (Get-Service -Name may-route-daemon).WaitForStatus([System.ServiceProcess.ServiceControllerStatus]::Stopped, [TimeSpan]::FromSeconds(10)) }"'
   Pop $1
   ${if} $1 != 0
     Abort "$(stopServiceFailed)"
@@ -1596,7 +1598,7 @@ FunctionEnd
   StrCpy $applicationDataDirectory ""
   StrCpy $installationID ""
   SetShellVarContext all
-  StrCpy $daemonDataDirectory "$APPDATA\mxh-route-daemon"
+  StrCpy $daemonDataDirectory "$APPDATA\may-route-daemon"
   StrCpy $0 0
   ReadRegDWORD $0 HKLM "${INSTALLATION_LAYOUT_REGISTRY_KEY}" "LayoutVersion"
   ${if} $0 == 2
@@ -1636,7 +1638,7 @@ FunctionEnd
       ${endif}
       ${if} $applicationDataDirectory == ""
         SetShellVarContext current
-        RMDir /r "$APPDATA\mxh-route"
+        RMDir /r "$APPDATA\may-route"
         SetShellVarContext all
       ${endif}
       !insertmacro setInstallationLayoutRegistryView
@@ -1647,7 +1649,7 @@ FunctionEnd
 !macroend
 
 !macro customUnInstallSection
-  Section "-Preserve MXH Route application data layout"
+  Section "-Preserve May Route application data layout"
     ${ifNot} ${isUpdated}
     ${andif} $keepUninstallData == ${BST_CHECKED}
     ${andif} $installationID != ""

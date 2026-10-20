@@ -298,7 +298,7 @@ async function runWindowsElectronBuilder(
   signingConfiguration: WindowsSigningConfiguration,
 ): Promise<void> {
   const artifactName = customWindowsPackage
-    ? `MXH-Route-\${version}-windows-${artifactArchitecture}${developmentPackage ? "-dev" : ""}.\${ext}`
+    ? `May-Route-\${version}-windows-${artifactArchitecture}${developmentPackage ? "-dev" : ""}.\${ext}`
     : `SFW-\${version}-${artifactArchitecture}${developmentPackage ? "-dev" : ""}.\${ext}`;
   const unpackedDirectory = {
     x64: "win-unpacked",

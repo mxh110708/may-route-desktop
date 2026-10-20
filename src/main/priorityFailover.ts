@@ -73,7 +73,7 @@ export function addProbeRoutes(content: string, ports: number[], settings: Prior
   config.inbounds ??= []; config.route ??= {}; config.route.rules ??= [];
   const rules: unknown[] = [];
   candidates.forEach((candidate, i) => {
-    const tag = `mxh-priority-probe-${i}`;
+    const tag = `may-priority-probe-${i}`;
     if (config.inbounds.some((v: any) => v.tag === tag)) throw new Error("reserved priority probe tag collision");
     config.inbounds.push({ type: "http", tag, listen: "127.0.0.1", listen_port: candidate.port });
     rules.push({ inbound: [tag], action: "route", outbound: candidate.tag });

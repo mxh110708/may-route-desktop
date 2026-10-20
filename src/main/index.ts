@@ -64,7 +64,7 @@ import {
 
 let handlingFatalError = false;
 
-const APPLICATION_LABEL = __CUSTOM_BUILD__ ? "MXH Route" : "sing-box";
+const APPLICATION_LABEL = __CUSTOM_BUILD__ ? "May Route" : "sing-box";
 
 function fatalErrorMessage(error: unknown, capture: RuntimeCrashCaptureResult): string {
   const errorObject = error instanceof Error ? error : new Error(String(error));
@@ -140,7 +140,7 @@ function createWindow(): BrowserWindow {
       MAIN_WINDOW_MINIMUM_HEIGHT,
       restoredBounds?.height ?? MAIN_WINDOW_MINIMUM_HEIGHT,
     ),
-    title: __CUSTOM_BUILD__ ? "MXH Route" : "sing-box",
+    title: __CUSTOM_BUILD__ ? "May Route" : "sing-box",
     show: false,
     titleBarStyle: process.platform === "darwin" ? "hiddenInset" : "hidden",
     trafficLightPosition: process.platform === "darwin" ? { x: 18, y: 19 } : undefined,

@@ -1,4 +1,4 @@
-# MXH Route 1.14.2-mxh.17
+# May Route 1.14.2-mxh.17
 
 降低常驻资源开销，保留完整字体覆盖、连接历史、配置草稿和活动终端。
 
@@ -8,10 +8,10 @@
 - 字体管理、报告和部分数据模块按需加载，保持本地离线可用。
 - 界面、辅助进程、Electron 语言资源和安装器仅支持简体中文与英文。旧中文设置归入简中，其他语言回退英文；字体字符覆盖保持完整。
 
-重新审查历次调优，撤回没有充分收益的通用历史缓冲和曲线快照抽象。54 次隔离界面对照、216 个内存样本中，当前界面较 mxh.16 在四种状态约少 8.5–16.9 MiB；这些是在同一隔离宿主下的界面比较，不是完整安装包或现用环境的固定降幅。专项性能收益、冷启动和全量更新的成本见 [逐项实测记录](https://github.com/mxh110708/mxh-route-desktop/blob/v1.14.2-mxh.17/docs/INDIVIDUAL-PERFORMANCE-2026-10-19.zh-CN.md)。
+重新审查历次调优，撤回没有充分收益的通用历史缓冲和曲线快照抽象。54 次隔离界面对照、216 个内存样本中，当前界面较 mxh.16 在四种状态约少 8.5–16.9 MiB；这些是在同一隔离宿主下的界面比较，不是完整安装包或现用环境的固定降幅。专项性能收益、冷启动和全量更新的成本见 [逐项实测记录](https://github.com/mxh110708/may-route-desktop/blob/v1.14.2-mxh.17/docs/INDIVIDUAL-PERFORMANCE-2026-10-19.zh-CN.md)。
 
-旧 GPU 进程 CPU 异常已通过 Chromium 精确计时和时间线复核，原先的粗粒度计时会失真；没有关闭硬件加速。详见 [GPU 计时说明](https://github.com/mxh110708/mxh-route-desktop/blob/v1.14.2-mxh.17/docs/GPU-MEASUREMENT-2026-10-19.zh-CN.md)。
+旧 GPU 进程 CPU 异常已通过 Chromium 精确计时和时间线复核，原先的粗粒度计时会失真；没有关闭硬件加速。详见 [GPU 计时说明](https://github.com/mxh110708/may-route-desktop/blob/v1.14.2-mxh.17/docs/GPU-MEASUREMENT-2026-10-19.zh-CN.md)。
 
 桌面与界面测试、语言回退、字体覆盖、配置替换、草稿、终端、连接历史和真实回环代理传输验收通过。安装包沿用既有签名身份，附 SHA-256 校验文件。可在应用中检查更新，或从本页下载安装包。
 
-源码：[核心](https://github.com/mxh110708/mxh-route-core/commit/4f5df650cb208ffccfa946104099a29e58b16629)、[界面](https://github.com/mxh110708/mxh-route-dashboard/commit/2d138a3131433fafa6a337e3432907aaa45959ac)、[桌面](https://github.com/mxh110708/mxh-route-desktop/tree/v1.14.2-mxh.17)。
+源码：[核心](https://github.com/mxh110708/may-route-core/commit/4f5df650cb208ffccfa946104099a29e58b16629)、[界面](https://github.com/mxh110708/may-route-dashboard/commit/2d138a3131433fafa6a337e3432907aaa45959ac)、[桌面](https://github.com/mxh110708/may-route-desktop/tree/v1.14.2-mxh.17)。

@@ -33,7 +33,7 @@ function New-TestDirectory([string]$Name) {
 }
 
 $temporaryRoot = [System.IO.Path]::GetFullPath([System.IO.Path]::GetTempPath())
-$testRoot = Join-Path $temporaryRoot "mxh-route-installer-$([Guid]::NewGuid().ToString('N'))"
+$testRoot = Join-Path $temporaryRoot "may-route-installer-$([Guid]::NewGuid().ToString('N'))"
 [void][System.IO.Directory]::CreateDirectory($testRoot)
 
 try {

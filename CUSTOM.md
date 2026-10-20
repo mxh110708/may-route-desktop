@@ -1,4 +1,4 @@
-# MXH Route
+# May Route
 
 This repository is a personal Windows distribution based on the official
 `SagerNet/sing-box-for-desktop` project. It keeps upstream behavior while
@@ -14,7 +14,7 @@ and data directories.
 The assisted uninstaller presents explicit choices to keep application data
 for a later reinstall or to delete all application data. Keeping data is the
 default. A fresh installer can recover a non-empty data directory only when it
-has a valid MXH Route installation marker; unmarked, malformed, or unsafe
+has a valid May Route installation marker; unmarked, malformed, or unsafe
 directories remain blocked.
 
 System Proxy mode has a conservative recovery monitor for Rule and Global
@@ -22,7 +22,7 @@ routing. A healthy CONNECT path is checked once per minute. A failed check is
 confirmed every five seconds, and only three consecutive failures trigger one
 serialized profile reload. Direct mode and stopped services are not probed.
 State changes, probe results and recovery errors are written to
-`system-proxy-health.log` in the MXH Route user-data directory. On Windows,
+`system-proxy-health.log` in the May Route user-data directory. On Windows,
 loopback quality and actual system-proxy ownership are evaluated separately.
 A disabled switch with the expected endpoint is confirmed twice before one
 reassertion; foreign endpoints or PAC settings are never reclaimed.
@@ -31,7 +31,7 @@ Application and tray artwork reuse unchanged icon files from the official
 desktop project. `resources/upstream-icons.json` records the upstream commit
 and SHA-256 values; `pnpm icons` verifies these assets without redrawing them.
 The product name, application identity, and
-update channel remain MXH Route, and this is still an unofficial personal
+update channel remain May Route, and this is still an unofficial personal
 distribution.
 
 ## Interface fonts and tray
@@ -146,8 +146,8 @@ the `upstream` remotes in all three working trees:
 - Core: `SagerNet/sing-box`
 
 The corresponding personal `origin` repositories are
-`mxh110708/mxh-route-desktop`, `mxh110708/mxh-route-dashboard`, and
-`mxh110708/mxh-route-core`.
+`mxh110708/may-route-desktop`, `mxh110708/may-route-dashboard`, and
+`mxh110708/may-route-core`.
 
 Run `scripts/sync-upstream.ps1` only from a clean working tree. It fetches the
 three upstream repositories, checks out the requested official desktop/core
@@ -168,7 +168,7 @@ upstream development commits as local changes. The proxy is optional; pass
 ## Update channel
 
 Custom builds check only public Releases from
-`mxh110708/mxh-route-desktop`. They accept only an installer whose
+`mxh110708/may-route-desktop`. They accept only an installer whose
 name exactly matches the custom release version. The privileged service also
 requires the update installer to use the same signer as the installed build.
 Unsafe signer-mismatch and not-newer fallbacks are disabled in custom builds.

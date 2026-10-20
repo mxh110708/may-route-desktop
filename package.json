@@ -1,16 +1,16 @@
 {
-  "name": "mxh-route",
-  "desktopName": "mxh-route.desktop",
+  "name": "may-route",
+  "desktopName": "may-route.desktop",
   "private": true,
   "description": "Personal Windows routing client based on an upstream universal proxy platform.",
-  "homepage": "https://github.com/mxh110708/mxh-route-desktop",
+  "homepage": "https://github.com/mxh110708/may-route-desktop",
   "license": "GPL-3.0-or-later",
   "author": {
     "name": "mxh110708"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/mxh110708/mxh-route-desktop.git"
+    "url": "git+https://github.com/mxh110708/may-route-desktop.git"
   },
   "type": "module",
   "packageManager": "pnpm@11.19.0",

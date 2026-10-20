@@ -31,7 +31,7 @@ test("idle sockets and zero-byte updates do not keep unused regions alive", () =
 
 test("own candidate and system-proxy health checks never activate a region", () => {
   const a = setup(); a.ignoreSource(43210, 1000);
-  a.ingest({ reset: true, events: [event("candidate", ["West"], { inbound: "mxh-priority-probe-0" }), event("health")] }, 1000);
+  a.ingest({ reset: true, events: [event("candidate", ["West"], { inbound: "may-priority-probe-0" }), event("health")] }, 1000);
   assert.deepEqual(a.active(1000), []); assert.equal(a.retainedConnections, 0);
   a.ingest({ reset: false, events: [event("business", ["HK"], { source: "127.0.0.1:43211", outbound: "h1" })] }, 1000);
   assert.deepEqual(a.active(1000), ["HK"]);

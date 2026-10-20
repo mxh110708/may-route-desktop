@@ -80,7 +80,7 @@ const lastShownUpdateVersionPreference = new Preference(
 const githubTokenPreference = new Preference("github_token", "", parseString);
 const updateProxyPreference = new Preference("update_proxy", "", normalizeUpdateProxyAddress);
 const updateConnection = new UpdateConnection(() =>
-  session.fromPartition("mxh-route-updates", { cache: false }),
+  session.fromPartition("may-route-updates", { cache: false }),
 );
 const installation = new UpdateInstallation();
 

@@ -1,6 +1,6 @@
-# MXH Route
+# May Route
 
-MXH Route is a personal Windows routing client derived from the upstream
+May Route is a personal Windows routing client derived from the upstream
 [`SagerNet/sing-box-for-desktop`](https://github.com/SagerNet/sing-box-for-desktop)
 project. It is independently named and is not an official SagerNet release.
 
@@ -22,7 +22,7 @@ recovery boundaries, and remaining validation limits.
 
 ## 深浅色外观
 
-界面参考 MXH VPS Deploy：深色采用蓝灰分层与浅蓝强调色，浅色采用蓝色侧栏与白色内容区。卡片、输入框、按钮、菜单和对话框使用统一的颜色角色，保留跟随系统、预设及自定义主题色。实现与验收范围见 [主题重构说明](docs/THEME-REFRESH.zh-CN.md)。
+界面参考 May VPS Deploy：深色采用蓝灰分层与浅蓝强调色，浅色采用蓝色侧栏与白色内容区。卡片、输入框、按钮、菜单和对话框使用统一的颜色角色，保留跟随系统、预设及自定义主题色。实现与验收范围见 [主题重构说明](docs/THEME-REFRESH.zh-CN.md)。
 
 ## 本地配置与端口设置
 
@@ -58,6 +58,6 @@ locally. The public application update channel does not embed a GitHub token.
 ## Upstream and license
 
 The desktop, dashboard, and core source retain their upstream copyright and
-license notices. See [LICENSE](LICENSE). The application name MXH Route is used
+license notices. See [LICENSE](LICENSE). The application name May Route is used
 to comply with the upstream requirement that derivative works not use the
 original application's name or imply official association without consent.

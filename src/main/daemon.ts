@@ -18,7 +18,7 @@ if (process.platform === "win32" && app.isPackaged) {
 } else {
   const defaultSocketPath =
     process.platform === "win32"
-      ? "\\\\.\\pipe\\ProtectedPrefix\\Administrators\\mxh-route"
+      ? "\\\\.\\pipe\\ProtectedPrefix\\Administrators\\may-route"
       : process.platform === "linux"
         ? "/run/sing-box.socket"
         : null;

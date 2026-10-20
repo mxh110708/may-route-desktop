@@ -3,7 +3,7 @@ import { mkdir, readFile, rename, unlink, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { parse as parseJSONC, type ParseError } from "jsonc-parser";
 
-export const PUBLIC_RULE_BUNDLE_URL = "https://raw.githubusercontent.com/mxh110708/mxh-route-desktop/custom-main/resources/public-rules-v1.json";
+export const PUBLIC_RULE_BUNDLE_URL = "https://raw.githubusercontent.com/mxh110708/may-route-desktop/custom-main/resources/public-rules-v1.json";
 export const PUBLIC_RULE_BUNDLE_SHA256 = "859c99058f5c9a481f01a8048dce72cf7ce1f623175c85815866b06e8fc29839";
 export const PUBLIC_RULE_BUNDLE_FILE = "public-rules-v1.json";
 const MAX_BYTES = 2 * 1024 * 1024;
@@ -87,7 +87,7 @@ export class PublicRuleCache {
           const reader = response.body.getReader();
           for (;;) { const item = await reader.read(); if (item.done) break; size += item.value.length; if (size > MAX_BYTES) { await reader.cancel(); throw new Error("bundle too large"); } chunks.push(Buffer.from(item.value)); }
           data = Buffer.concat(chunks); decodeBundle(data);
-        } catch { throw new Error("没有有效缓存或应用内置公共规则包，联网下载或校验也失败。请重新安装完整的 MXH Route 或联网后重试；私人配置未上传。"); }
+        } catch { throw new Error("没有有效缓存或应用内置公共规则包，联网下载或校验也失败。请重新安装完整的 May Route 或联网后重试；私人配置未上传。"); }
       }
       await atomic(bundlePath, data);
     }

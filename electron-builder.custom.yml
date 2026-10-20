@@ -1,15 +1,15 @@
 extends: electron-builder.yml
-productName: MXH Route
+productName: May Route
 fileAssociations: []
 win:
-  appId: io.mxh.route
+  appId: io.may.route
   forceCodeSigning: true
-  artifactName: MXH-Route-${version}-windows-x64.${ext}
+  artifactName: May-Route-${version}-windows-x64.${ext}
 nsis:
-  artifactName: MXH-Route-${version}-windows-x64.${ext}
+  artifactName: May-Route-${version}-windows-x64.${ext}
 directories:
   output: release-custom-installer
 extraMetadata:
-  name: mxh-route
+  name: may-route
   description: Personal Windows routing client based on an upstream universal proxy platform.
-  homepage: https://github.com/mxh110708/mxh-route-desktop
+  homepage: https://github.com/mxh110708/may-route-desktop

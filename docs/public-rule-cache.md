@@ -1,6 +1,6 @@
 # Public rule bootstrap cache
 
-MXH Route recognizes the five MetaCubeX remote binary rule sets used by the
+May Route recognizes the five MetaCubeX remote binary rule sets used by the
 private authority configuration. On import validation and service start it
 uses a verified application cache first, then the public bootstrap bundle
 shipped with the application. Only when neither local copy is valid does it
@@ -47,7 +47,7 @@ bootstrap and retain their original behavior.
 The sing-box core still uses each original remote URL and daily update interval;
 this package only provides initial data, not a replacement update mechanism.
 Moving to another computer requires only the private JSON and a compatible
-MXH Route installer containing the public bootstrap bundle; the cache is
+May Route installer containing the public bootstrap bundle; the cache is
 initialized there automatically even without an already-running proxy.
 Other sing-box clients ignore no custom fields because none are added: they
 simply download the original remote rule sets without an initial local file.

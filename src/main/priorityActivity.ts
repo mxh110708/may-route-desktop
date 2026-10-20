@@ -25,7 +25,7 @@ export class PriorityActivity {
     for (const [key, at] of this.internalSources) if (now - at > this.graceMs) this.internalSources.delete(key);
   }
   private identify(connection: PriorityActivityConnection, now: number): string[] {
-    if (connection.inbound.startsWith("mxh-priority-probe-")) return [];
+    if (connection.inbound.startsWith("may-priority-probe-")) return [];
     const port = connection.source?.slice(connection.source.lastIndexOf(":") + 1);
     if (port && /^(127\.0\.0\.1:|\[::1\]:)/u.test(connection.source ?? "") && now - (this.internalSources.get(port) ?? -Infinity) <= this.graceMs) return [];
     const chain = [...connection.chainList, connection.outbound, connection.fromOutbound ?? ""];

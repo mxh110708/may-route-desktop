@@ -21,7 +21,7 @@ function Initialize-TransitionStateStorage() {
         [Environment+SpecialFolder]::CommonApplicationData
     )
     $expectedPath = Join-Path `
-        (Join-Path $commonApplicationData "mxh-route-installer") `
+        (Join-Path $commonApplicationData "may-route-installer") `
         "data-transition.json"
     if (-not [System.IO.Path]::GetFullPath($StatePath).Equals(
             [System.IO.Path]::GetFullPath($expectedPath),
@@ -266,8 +266,8 @@ function Get-WindowsProfiles() {
         $profilePath = [Environment]::ExpandEnvironmentVariables($profileImagePath)
         $profiles[$profileKey.PSChildName] = [PSCustomObject]@{
             UserID = $profileKey.PSChildName
-            DataPath = Join-Path $profilePath "AppData\Roaming\mxh-route"
-            LegacyDataPath = Join-Path $profilePath "AppData\Roaming\mxh-route-legacy"
+            DataPath = Join-Path $profilePath "AppData\Roaming\may-route"
+            LegacyDataPath = Join-Path $profilePath "AppData\Roaming\may-route-legacy"
         }
     }
     return $profiles
@@ -297,7 +297,7 @@ function Read-ApplicationDataDirectoryID([string]$Path) {
     try {
         return [string](Get-Content `
             -LiteralPath $directory `
-            -Stream "mxh-route.installation-id" `
+            -Stream "may-route.installation-id" `
             -Raw `
             -ErrorAction Stop)
     } catch [System.IO.FileNotFoundException] {

@@ -2,6 +2,7 @@ import { app } from "electron";
 import type { LoginItemSettings } from "electron";
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join } from "node:path";
+import { migrateBrandLoginItem } from "./brandLoginItem";
 
 export const LOGIN_ITEM_ARGUMENT = "--start-at-login";
 
@@ -87,6 +88,12 @@ export function setOpenAtLogin(value: boolean) {
 export function migrateLoginItem() {
   if (process.platform !== "win32") {
     return;
+  }
+  if (__CUSTOM_BUILD__ && app.isPackaged) {
+    migrateBrandLoginItem(app.getPath("exe"), {
+      get: (options) => app.getLoginItemSettings(options),
+      set: (settings) => app.setLoginItemSettings(settings),
+    });
   }
   if (getLoginItemSettings().openAtLogin) {
     return;

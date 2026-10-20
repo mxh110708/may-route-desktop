@@ -1,4 +1,4 @@
-# MXH Route 延迟测速口径
+# May Route 延迟测速口径
 
 ## 2026-09-30 测试目标对齐
 
@@ -14,7 +14,7 @@ URLTest 分组 URL 继续生效。
 
 本次固定 CORONA IPv4 入口、同一组落地参数，两轮隔离对照得到：
 
-| IPv4 落地测试目标 | MXH Route 预热后 ms | Mihomo unified-delay ms |
+| IPv4 落地测试目标 | May Route 预热后 ms | Mihomo unified-delay ms |
 | --- | --- | --- |
 | `https://www.gstatic.com/generate_204` | 332 / 340 | 328 / 339 |
 | `https://cp.cloudflare.com/generate_204` | 181 / 187 | 202 / 198 |
