@@ -87,7 +87,7 @@ try {
   await once(failed, "connect"); failed.write(`CONNECT 127.0.0.1:${targetE} HTTP/1.1\r\nHost: 127.0.0.1:${targetE}\r\n\r\n`);
   await wait(() => activity.active(Date.now()).includes("Europe"), "failed initial connection still marks its used region");
   const result = { passed: true, chains, groups: activity.active(Date.now()), internalProbesExcluded: true, failedInitialConnectionRecognized: true };
-  await writeFile(process.env.MXH_PRIORITY_RUNTIME_RESULT || join(directory, "result.json"), JSON.stringify(result, null, 2));
+  await writeFile(process.env.MAY_PRIORITY_RUNTIME_RESULT || join(directory, "result.json"), JSON.stringify(result, null, 2));
 } finally {
   abort.abort(); await stream;
   if (launched) await managed.stopService({}, { timeoutMs: 2000 }).catch(() => {});

@@ -9,7 +9,7 @@ test("font parser rejects spoofed formats, truncation and oversized data", () =>
   for (const data of [Buffer.from("MZnot-a-font"), Buffer.alloc(12), Buffer.alloc(MAX_FONT_BYTES + 1)]) assert.throws(() => validateFont(data));
 });
 test("font import preserves bytes, reuses duplicates and rejects tampering or path traversal", async () => {
-  const directory = await mkdtemp(join(tmpdir(), "mxh-font-test-"));
+  const directory = await mkdtemp(join(tmpdir(), "may-font-test-"));
   try {
     const bytes = await readFile(new URL("../../dashboard/src/assets/fonts/LXGWWenKai-Regular.ttf", import.meta.url));
     const path = join(directory, "example.ttf"); await writeFile(path, bytes);

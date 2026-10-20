@@ -10,7 +10,7 @@ import { downloadUpdateFile } from "./updateDownload";
 const payload = Buffer.alloc(128 * 1024, 42);
 
 async function fixture(handler: RequestListener) {
-  const directory = await mkdtemp(join(tmpdir(), "mxh-route-update-download-"));
+  const directory = await mkdtemp(join(tmpdir(), "may-route-update-download-"));
   const server = createServer(handler);
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();

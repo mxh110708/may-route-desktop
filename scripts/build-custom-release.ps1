@@ -111,6 +111,8 @@ try {
     Invoke-Pnpm test:renderer-loading
     Invoke-Pnpm test:localization
     Invoke-Pnpm test:installer-preflight
+    Invoke-Pnpm test:installer-shortcuts
+    Invoke-Pnpm test:installer-storage
     Invoke-Pnpm typecheck
     Invoke-Pnpm -Arguments @("-C", "dashboard", "test", "--", "--run")
     Invoke-Pnpm -Arguments @("-C", "dashboard", "lint")

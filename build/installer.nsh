@@ -6,10 +6,14 @@ SetFont "Segoe UI" 9
 
 !define INSTALLATION_LAYOUT_REGISTRY_KEY "Software\May\Route"
 !define TAILDROP_VERB_REGISTRY_KEY "Software\Classes\*\shell\Taildrop"
+!define DO_NOT_CREATE_DESKTOP_SHORTCUT
+!define DO_NOT_CREATE_START_MENU_SHORTCUT
+
+Var shortcutUserPrograms
+Var shortcutUserDesktop
 
 !ifndef BUILD_UNINSTALLER
   !include StrContains.nsh
-  !define DO_NOT_CREATE_DESKTOP_SHORTCUT
 
   Var allowUnsafeInstallation
   Var installationValidationAllowsUnsafe
@@ -614,6 +618,8 @@ FunctionEnd
   File /oname=$PLUGINSDIR\installer-preflight.ps1 "${BUILD_RESOURCES_DIR}\installer-preflight.ps1"
   File /oname=$PLUGINSDIR\installer-service.ps1 "${BUILD_RESOURCES_DIR}\installer-service.ps1"
   File /oname=$PLUGINSDIR\installer-data.ps1 "${BUILD_RESOURCES_DIR}\installer-data.ps1"
+  File /oname=$PLUGINSDIR\installer-shortcuts.ps1 "${BUILD_RESOURCES_DIR}\installer-shortcuts.ps1"
+  !insertmacro resolveShortcutUserFolders
   ${if} ${FileExists} "$dataTransitionStatePath"
     nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\installer-data.ps1" -Operation Recover -StatePath "$dataTransitionStatePath"'
     Pop $0
@@ -743,6 +749,29 @@ FunctionEnd
   nsExec::ExecToStack '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\installer-data.ps1" -Operation ${OPERATION} -StatePath "$dataTransitionStatePath" -PreviousApplicationDataDirectory "$previousApplicationDataDirectory" -ApplicationDataDirectory "$applicationDataDirectory" -PreviousDaemonDataDirectory "$previousDaemonDataDirectory" -DaemonDataDirectory "$daemonDataDirectory" -PreviousInstallationID "$previousInstallationID" -InstallationID "$installationID" $3'
   Pop $1
   Pop $0
+!macroend
+
+!macro resolveShortcutUserFolders
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\installer-shortcuts.ps1" -Operation Resolve -PathsFile "$PLUGINSDIR\shortcut-user-folders.ini"'
+  Pop $1
+  ${if} $1 != 0
+    Abort "Could not resolve the session user's shortcut folders."
+  ${endif}
+  ReadINIStr $shortcutUserPrograms "$PLUGINSDIR\shortcut-user-folders.ini" "User" "Programs"
+  ReadINIStr $shortcutUserDesktop "$PLUGINSDIR\shortcut-user-folders.ini" "User" "Desktop"
+  Delete "$PLUGINSDIR\shortcut-user-folders.ini"
+  ${if} $shortcutUserPrograms == ""
+  ${orif} $shortcutUserDesktop == ""
+    Abort "The session user's shortcut folders are empty."
+  ${endif}
+!macroend
+
+!macro executeShortcutMaintenance OPERATION
+  SetShellVarContext all
+  StrCpy $R5 "$SMPROGRAMS"
+  StrCpy $R6 "$DESKTOP"
+  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\installer-shortcuts.ps1" -Operation ${OPERATION} -ExecutablePath "$INSTDIR\${APP_EXECUTABLE_FILENAME}" -ShortcutName "${SHORTCUT_NAME}" -UserPrograms "$shortcutUserPrograms" -CommonPrograms "$R5" -UserDesktop "$shortcutUserDesktop" -CommonDesktop "$R6"'
+  Pop $1
 !macroend
 
 !macro customPageAfterChangeDir
@@ -1483,11 +1512,24 @@ FunctionEnd
   ${endif}
   StrCpy $4 0
   !insertmacro refreshDesktopShortcutIfPresent "$newDesktopLink" "$oldDesktopLink" $4
-  SetShellVarContext current
-  StrCpy $5 "$DESKTOP\${SHORTCUT_NAME}.lnk"
-  StrCpy $6 "$DESKTOP\$oldShortcutName.lnk"
+  StrCpy $5 "$shortcutUserDesktop\${SHORTCUT_NAME}.lnk"
+  StrCpy $6 "$shortcutUserDesktop\$oldShortcutName.lnk"
   !insertmacro refreshDesktopShortcutIfPresent "$5" "$6" $4
   SetShellVarContext all
+  !insertmacro executeShortcutMaintenance "Ensure"
+  ${if} $1 != 0
+    Abort "Could not reconcile the application shortcuts."
+  ${endif}
+  StrCpy $launchLink "$shortcutUserPrograms\${SHORTCUT_NAME}.lnk"
+  WinShell::SetLnkAUMI "$launchLink" "${APP_ID}"
+  SetShellVarContext all
+  ${if} ${Silent}
+  ${andif} $hasExistingInstallation == 0
+  ${andif} $4 == 0
+  ${andifNot} ${isUpdated}
+  ${andifNot} ${isNoDesktopShortcut}
+    Call createDesktopShortcut
+  ${endif}
   ${if} $4 == 1
     System::Call 'shell32::SHChangeNotify(i 0x8000000, i 0, i 0, i 0)'
   ${endif}
@@ -1530,9 +1572,8 @@ FunctionEnd
     ${orif} ${FileExists} "$oldDesktopLink"
       StrCpy $0 1
     ${endif}
-    SetShellVarContext current
-    ${if} ${FileExists} "$DESKTOP\${SHORTCUT_NAME}.lnk"
-    ${orif} ${FileExists} "$DESKTOP\$oldShortcutName.lnk"
+    ${if} ${FileExists} "$shortcutUserDesktop\${SHORTCUT_NAME}.lnk"
+    ${orif} ${FileExists} "$shortcutUserDesktop\$oldShortcutName.lnk"
       StrCpy $0 1
     ${endif}
     SetShellVarContext all
@@ -1610,6 +1651,8 @@ FunctionEnd
   InitPluginsDir
   File /oname=$PLUGINSDIR\installer-service.ps1 "${BUILD_RESOURCES_DIR}\installer-service.ps1"
   File /oname=$PLUGINSDIR\installer-preflight.ps1 "${BUILD_RESOURCES_DIR}\installer-preflight.ps1"
+  File /oname=$PLUGINSDIR\installer-shortcuts.ps1 "${BUILD_RESOURCES_DIR}\installer-shortcuts.ps1"
+  !insertmacro resolveShortcutUserFolders
   ${GetParameters} $R0
   ${GetOptions} $R0 "--delete-app-data" $R1
   ${ifNot} ${Errors}
@@ -1629,6 +1672,10 @@ FunctionEnd
       ${endif}
     ${endif}
     !insertmacro unregisterTaildropVerb
+    !insertmacro executeShortcutMaintenance "Remove"
+    ${if} $1 != 0
+      Abort "Could not remove the application shortcuts."
+    ${endif}
     ${if} $keepUninstallData == ${BST_UNCHECKED}
       DetailPrint "$(removingData)"
       nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\installer-preflight.ps1" -InstallationDirectory "$INSTDIR" -ApplicationDataDirectory "$applicationDataDirectory" -DaemonWorkingDirectory "$daemonDataDirectory" -InstallationID "$installationID" -AllowUnsafeInstallationDirectory -DeleteDataDirectories'
@@ -1643,7 +1690,10 @@ FunctionEnd
       ${endif}
       !insertmacro setInstallationLayoutRegistryView
       DeleteRegKey HKLM "${INSTALLATION_LAYOUT_REGISTRY_KEY}"
+      DeleteRegKey /ifempty HKLM "Software\May"
       !insertmacro restoreInstallerRegistryView
+      SetShellVarContext all
+      RMDir "$APPDATA\may-route-installer"
     ${endif}
   ${endIf}
 !macroend

@@ -20,7 +20,7 @@ test("portable export strips only known public rule paths", () => {
   assert.equal(portablePublicRules("not json"), "not json");
 });
 test("download, verify, cache, offline startup, repair and concurrency", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "mxh-rules-")); let calls = 0;
+  const dir = await mkdtemp(join(tmpdir(), "may-rules-")); let calls = 0;
   const request = (async (url: unknown, options: RequestInit) => {
     calls++; assert.equal(url, PUBLIC_RULE_BUNDLE_URL); assert.equal(options.body, undefined);
     return new Response(bundle);
@@ -40,7 +40,7 @@ test("download, verify, cache, offline startup, repair and concurrency", async (
   } finally { await rm(dir, { recursive: true, force: true }); }
 });
 test("without an installed seed, tampered downloads and offline first imports fail closed", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "mxh-rules-"));
+  const dir = await mkdtemp(join(tmpdir(), "may-rules-"));
   try {
     for (const request of [(async () => new Response("untrusted")), (async () => { throw Error("offline"); })]) {
       await assert.rejects(new PublicRuleCache(dir, request as typeof fetch).prepare(profile), /没有有效缓存/u);
@@ -55,7 +55,7 @@ test("unrecognized rules never trigger downloads", async () => {
 });
 
 test("empty cache and blocked network allow concurrent first imports from the bundled seed", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "mxh-rules-"));
+  const dir = await mkdtemp(join(tmpdir(), "may-rules-"));
   let calls = 0;
   const request = (async () => { calls++; throw Error("network must not be used"); }) as typeof fetch;
   try {
@@ -81,7 +81,7 @@ test("empty cache and blocked network allow concurrent first imports from the bu
 });
 
 test("a verified cache remains usable even when the installed bundle is missing", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "mxh-rules-"));
+  const dir = await mkdtemp(join(tmpdir(), "may-rules-"));
   try {
     const seed = join(dir, PUBLIC_RULE_BUNDLE_FILE);
     await writeFile(seed, bundle);
@@ -93,7 +93,7 @@ test("a verified cache remains usable even when the installed bundle is missing"
 });
 
 test("clearing all cached rules can be recovered offline from the read-only bundled seed", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "mxh-rules-"));
+  const dir = await mkdtemp(join(tmpdir(), "may-rules-"));
   try {
     const seed = join(dir, PUBLIC_RULE_BUNDLE_FILE);
     await writeFile(seed, bundle);
@@ -107,7 +107,7 @@ test("clearing all cached rules can be recovered offline from the read-only bund
 });
 
 test("damaged cached bundle and SRS files are rebuilt from the verified installed bundle offline", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "mxh-rules-"));
+  const dir = await mkdtemp(join(tmpdir(), "may-rules-"));
   try {
     const seed = join(dir, PUBLIC_RULE_BUNDLE_FILE);
     await writeFile(seed, bundle);
@@ -125,7 +125,7 @@ test("damaged cached bundle and SRS files are rebuilt from the verified installe
 });
 
 test("missing or tampered installed bundles fall back only to the fixed verified public download", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "mxh-rules-"));
+  const dir = await mkdtemp(join(tmpdir(), "may-rules-"));
   let calls = 0;
   const request = (async (url: unknown, options: RequestInit) => {
     calls++;
@@ -146,7 +146,7 @@ test("missing or tampered installed bundles fall back only to the fixed verified
 });
 
 test("invalid cache, seed and download fail closed without profile or credential leakage", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "mxh-rules-"));
+  const dir = await mkdtemp(join(tmpdir(), "may-rules-"));
   try {
     const seed = join(dir, PUBLIC_RULE_BUNDLE_FILE);
     await writeFile(seed, "untrusted");
@@ -165,7 +165,7 @@ test("invalid cache, seed and download fail closed without profile or credential
 });
 
 test("a failed import does not poison later offline retries after the seed is repaired", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "mxh-rules-"));
+  const dir = await mkdtemp(join(tmpdir(), "may-rules-"));
   try {
     const seed = join(dir, PUBLIC_RULE_BUNDLE_FILE);
     const cache = new PublicRuleCache(join(dir, "cache"), offlineRequest, seed);
@@ -176,7 +176,7 @@ test("a failed import does not poison later offline retries after the seed is re
 });
 
 test("all five known rules bootstrap offline without changing custom rules or remote update settings", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "mxh-rules-"));
+  const dir = await mkdtemp(join(tmpdir(), "may-rules-"));
   try {
     const rules = PUBLIC_RULE_NAMES.map((name) => {
       const geo = name.startsWith("geoip-") ? "geoip" : "geosite";
@@ -208,7 +208,7 @@ test("installer resource, runtime path and packaging preflight include the pinne
 
 test("afterPack rejects missing or altered bootstrap resources before signing", async () => {
   const { afterPack } = createRequire(import.meta.url)("../../scripts/afterPack.cjs");
-  const dir = await mkdtemp(join(tmpdir(), "mxh-rules-package-"));
+  const dir = await mkdtemp(join(tmpdir(), "may-rules-package-"));
   let signed = 0;
   try {
     const resources = join(dir, "app", "resources");

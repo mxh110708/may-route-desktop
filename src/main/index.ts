@@ -444,9 +444,9 @@ if (!singleInstanceLock) {
 } else {
   if (!__CUSTOM_BUILD__) {
     app.setAsDefaultProtocolClient("sing-box");
-    if (process.platform === "win32") {
-      app.setAppUserModelId("io.nekohasekai.sfw");
-    }
+  }
+  if (process.platform === "win32") {
+    app.setAppUserModelId(__CUSTOM_BUILD__ ? "io.may.route" : "io.nekohasekai.sfw");
   }
 
   app.on("second-instance", (_event, argv, workingDirectory) => {

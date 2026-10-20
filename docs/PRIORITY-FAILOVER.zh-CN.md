@@ -32,7 +32,7 @@ GUI 与下方文件使用同一份配置；首次打开面板也会创建默认�
 
 首次创建的 `group` 为空，只表示尚无编辑位置；监测是否启动由 `enabled`、实际流量和候选入口决定。各组默认沿用本组节点排列，不会把当前编辑组的顺序套用到别的地区。更换代理配置后，会对所有组清理失效节点，保留仍有效的自定义顺序；不会自动把原本排除的节点加入自定义列表。示例中的组名仅为示例，不是应用默认值。
 
-首次启动代理时，应用在自己的数据目录创建 `priority-failover.json`。默认安装通常位于 `C:\ProgramData\mxh-route\priority-failover.json`；自定义数据目录时跟随实际位置。不会覆盖已有文件。它不是 `priority-runtime.json`，也不是 sing-box 权威配置的一部分。
+首次启动代理时，应用在自己的数据目录创建 `priority-failover.json`。默认安装通常位于 `C:\ProgramData\may-route\priority-failover.json`；自定义数据目录时跟随实际位置。不会覆盖已有文件。它不是 `priority-runtime.json`，也不是 sing-box 权威配置的一部分。
 
 完整示例见 [priority-failover.example.json](priority-failover.example.json)。旧版单组 `group + order` 自动迁移到对应组的 `groupOrders`。退出并重开应用不保证重新准备已运行核心的探测入口；配置不匹配时不会复用旧探测缓存。
 

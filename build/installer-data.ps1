@@ -444,6 +444,13 @@ function Remove-TransitionState() {
     }
 }
 
+function Remove-EmptyTransitionStorage() {
+    $stateDirectory = Split-Path -Parent $StatePath
+    if ([System.IO.Directory]::Exists($stateDirectory) -and (Test-DirectoryEmpty $stateDirectory)) {
+        [System.IO.Directory]::Delete($stateDirectory)
+    }
+}
+
 function Complete-Transition([object]$State) {
     if ($State.Phase -ne "Committed") {
         $State.Phase = "Committed"
@@ -490,6 +497,7 @@ try {
     if ($Operation -eq "Recover") {
         $state = Read-TransitionState
         if ($null -eq $state) {
+            Remove-EmptyTransitionStorage
             exit 0
         }
         if ($state.Phase -eq "Committed") {
@@ -503,6 +511,8 @@ try {
         $state = Read-TransitionState
         if ($null -ne $state) {
             Complete-Transition $state
+        } else {
+            Remove-EmptyTransitionStorage
         }
         exit 0
     }
@@ -510,6 +520,8 @@ try {
         $state = Read-TransitionState
         if ($null -ne $state) {
             Undo-Transition $state
+        } else {
+            Remove-EmptyTransitionStorage
         }
         exit 0
     }

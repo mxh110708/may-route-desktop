@@ -220,7 +220,7 @@ test("ownership repair confirms twice and never fights another proxy repeatedly"
 });
 
 test("health log rotates and preserves complete concurrent records", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "mxh-health-log-")); const path = join(dir, "health.log");
+  const dir = await mkdtemp(join(tmpdir(), "may-health-log-")); const path = join(dir, "health.log");
   try {
     const log = new HealthLog(path, 180);
     await Promise.all(Array.from({ length: 10 }, (_, i) => log.write("sample", { sequence: i })));

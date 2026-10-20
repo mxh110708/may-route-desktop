@@ -9,7 +9,7 @@ import { parsePrioritySettings } from "../src/main/prioritySettings";
 const [configPath, corePath, group] = process.argv.slice(2);
 if (!configPath || !corePath || !group) throw new Error("Usage: checkPriorityRuntime <config> <sing-box executable> <entry group>");
 const settings = parsePrioritySettings({ group });
-const work = await mkdtemp(join(tmpdir(), "mxh-priority-check-"));
+const work = await mkdtemp(join(tmpdir(), "may-priority-check-"));
 try {
   const source = await readFile(configPath, "utf8");
   for (const mode of ["system-proxy", "tun"] as const) {
@@ -24,6 +24,6 @@ try {
   }
 } finally {
   const child = relative(tmpdir(), work);
-  if (isAbsolute(child) || child.startsWith("..") || !child.startsWith("mxh-priority-check-")) throw new Error("Invalid temporary cleanup path");
+  if (isAbsolute(child) || child.startsWith("..") || !child.startsWith("may-priority-check-")) throw new Error("Invalid temporary cleanup path");
   await rm(work, { recursive: true, force: true });
 }

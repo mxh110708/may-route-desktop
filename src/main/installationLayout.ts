@@ -92,7 +92,7 @@ export function readWindowsInstallationLayout(
     "v1.0",
     "powershell.exe",
   );
-  const temporaryDirectory = mkdtempSync(join(tmpdir(), "mxh-route-installation-layout-"));
+  const temporaryDirectory = mkdtempSync(join(tmpdir(), "may-route-installation-layout-"));
   const outputPath = join(temporaryDirectory, "layout.json");
   try {
     const result = spawnSync(

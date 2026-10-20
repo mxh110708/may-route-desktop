@@ -3,6 +3,8 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import test from "node:test";
 import { fileURLToPath } from "node:url";
+import { runInNewContext } from "node:vm";
+import ts from "typescript";
 
 const repositoryRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const coreRoot = resolve(repositoryRoot, "..", "sing-box");
@@ -14,6 +16,38 @@ function source(path: string): string {
 function coreSource(path: string): string {
   return readFileSync(resolve(coreRoot, path), "utf8");
 }
+
+test("Windows startup uses the installer's identity for both distributions", () => {
+  const index = ts.createSourceFile("index.ts", source("src/main/index.ts"), ts.ScriptTarget.Latest, true);
+  const startup = index.statements.find((statement): statement is ts.IfStatement =>
+    ts.isIfStatement(statement) && statement.expression.getText(index) === "!singleInstanceLock");
+  assert.ok(startup?.elseStatement && ts.isBlock(startup.elseStatement));
+  const statements = startup.elseStatement.statements;
+  const events = statements.findIndex((statement) => statement.getText(index).startsWith('app.on("second-instance"'));
+  assert.ok(events > 0);
+  const code = ts.transpileModule(statements.slice(0, events).map((statement) => statement.getText(index)).join("\n"), {
+    compilerOptions: { target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  for (const custom of [true, false]) {
+    const builder = source(custom ? "electron-builder.custom.yml" : "electron-builder.yml");
+    const expected = builder.match(/^  appId: (.+)$/mu)?.[1];
+    assert.ok(expected);
+    for (const platform of ["win32", "linux"]) {
+      const identities: string[] = [];
+      const protocols: string[] = [];
+      runInNewContext(code, {
+        __CUSTOM_BUILD__: custom,
+        process: { platform },
+        app: {
+          setAppUserModelId: (id: string) => identities.push(id),
+          setAsDefaultProtocolClient: (protocol: string) => protocols.push(protocol),
+        },
+      });
+      assert.deepEqual(identities, platform === "win32" ? [expected] : []);
+      assert.deepEqual(protocols, custom ? [] : ["sing-box"]);
+    }
+  }
+});
 
 test("the custom installer cannot target the official service or data directories", () => {
   const installer = source("build/installer.nsh");

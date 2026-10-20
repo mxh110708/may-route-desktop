@@ -240,7 +240,7 @@ test("settings validate types, bounds, duplicate tags and typo fields", () => {
   }
 });
 test("first run creates editable settings and subsequent loads never overwrite them", async () => {
-  const dir=await mkdtemp(join(tmpdir(),'mxh-settings-test-'));
+  const dir=await mkdtemp(join(tmpdir(),'may-settings-test-'));
   try {
     const path=join(dir,'priority-failover.json');
     const first=await loadPrioritySettings(path); assert.deepEqual(first.order,[]); assert.equal(first.group,'');
@@ -251,7 +251,7 @@ test("first run creates editable settings and subsequent loads never overwrite t
   } finally { await rm(dir,{recursive:true,force:true}); }
 });
 test("log rotation retains bounded generations and survives re-instantiation", async () => {
-  const dir = await mkdtemp(join(tmpdir(), "mxh-log-test-"));
+  const dir = await mkdtemp(join(tmpdir(), "may-log-test-"));
   try {
     const path = join(dir, "core.log"); const writer = new HealthLog(path, 100, 3);
     for (let i = 0; i < 20; i++) await writer.write("test", { marker: i });
@@ -270,7 +270,7 @@ test("credential-shaped fields are redacted but timeout diagnostics remain", () 
   assert.match(text, /DMIT timeout/);
 });
 test("GUI saves atomically and refuses stale or invalid writes", async () => {
-  const dir=await mkdtemp(join(tmpdir(),'mxh-gui-settings-'));
+  const dir=await mkdtemp(join(tmpdir(),'may-gui-settings-'));
   try {
     const path=join(dir,'priority-failover.json');const first=await prioritySettingsSnapshot(path);
     await savePrioritySettings(path,{...first.settings,group:'Another Entry'},first.revision);

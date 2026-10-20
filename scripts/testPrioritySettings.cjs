@@ -11,7 +11,7 @@ app.setPath("userData", join(directory, "user-data"));
 app.disableHardwareAcceleration();
 // Never use console output in Electron fixtures: a closed parent pipe must not
 // create an EPIPE error dialog on the user's desktop. Results go to one file.
-const resultPath = process.env.MXH_PRIORITY_UI_RESULT || join(directory, "result.json");
+const resultPath = process.env.MAY_PRIORITY_UI_RESULT || join(directory, "result.json");
 let window;
 app.whenReady().then(async () => {
   const dashboard = resolve(__dirname, "../dashboard");

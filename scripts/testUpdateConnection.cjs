@@ -12,7 +12,7 @@ const { join } = require("node:path");
 const { app, session } = require("electron");
 const ts = require("typescript");
 
-const directory = mkdtempSync(join(tmpdir(), "mxh-route-update-network-"));
+const directory = mkdtempSync(join(tmpdir(), "may-route-update-network-"));
 app.setPath("userData", join(directory, "user-data"));
 app.disableHardwareAcceleration();
 const servers = [];
@@ -147,7 +147,7 @@ app.whenReady().then(async () => {
     client.on("data", receive);
   }));
 
-  const isolated = session.fromPartition("mxh-route-update-network-test", { cache: false });
+  const isolated = session.fromPartition("may-route-update-network-test", { cache: false });
   // Trust only this test's exact ephemeral certificate, only in the test session.
   isolated.setCertificateVerifyProc((request, callback) => {
     callback(request.hostname === "127.0.0.1" && new X509Certificate(request.certificate.data).fingerprint256 === new X509Certificate(tls.cert).fingerprint256 ? 0 : -3);

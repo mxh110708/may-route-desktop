@@ -205,7 +205,7 @@ not persisted in the repository or the user's environment.
 
 The custom release revision comes from `custom-version.json`, while the
 official base version remains in `version.json`. A prerelease such as
-`1.14.0-beta.14` becomes `1.14.0-beta.14.mxh.1`; this preserves correct SemVer
+`1.14.0-beta.14` becomes `1.14.0-beta.14.may.1`; this preserves correct SemVer
 ordering when the next official prerelease appears. Increment the custom
 revision when the base version does not change.
 

@@ -54,6 +54,8 @@ jobs:
       - run: pnpm test:system-proxy-recovery
       - run: pnpm test:priority-editor:electron
       - run: pnpm test:installer-preflight
+      - run: pnpm test:installer-shortcuts
+      - run: pnpm test:installer-storage
       - run: pnpm typecheck
       - run: pnpm -C dashboard test -- --run
       - run: pnpm -C dashboard lint
