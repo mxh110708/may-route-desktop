@@ -26,6 +26,7 @@
     "src/main",
     "src/preload",
     "src/shared",
-    "dashboard/src/lib/taildrop.ts"
+    "dashboard/src/lib/taildrop.ts",
+    "dashboard/src/lib/priorityLatencyPresets.ts"
   ]
 }

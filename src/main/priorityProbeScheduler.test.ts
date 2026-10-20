@@ -4,6 +4,7 @@ import { PriorityProbeScheduler, type NodeSample } from "./priorityProbeSchedule
 import { PriorityFailover } from "./priorityFailover";
 
 const drain = async () => { for (let i = 0; i < 12; i++) await Promise.resolve(); };
+const quality = (reachable: boolean) => ({ reachable, latencyMs: reachable ? 100 : null });
 test("slow backups never delay active-node failure confirmation; backup parallelism is bounded", async () => {
   let now = 0, activeCalls = 0, backupCalls = 0;
   const completions: ((value: boolean) => void)[] = [];
@@ -11,9 +12,9 @@ test("slow backups never delay active-node failure confirmation; backup parallel
   const scheduler = new PriorityProbeScheduler({
     now: () => now,
     probe: async candidate => {
-      if (candidate.tag === "active") { activeCalls++; return false; }
+      if (candidate.tag === "active") { activeCalls++; return quality(false); }
       backupCalls++;
-      return new Promise<boolean>(resolve => completions.push(resolve));
+      return new Promise<boolean>(resolve => completions.push(resolve)).then(quality);
     },
     sample: async sample => { samples.push(sample); }, activeDelay: () => 1000,
     backupInterval: () => 30000, round: () => {}, error: error => { throw error; },
@@ -36,7 +37,7 @@ test("late probe results after manual selection/stop never reach the policy", as
   let valid = true;
   const complete: ((value: boolean) => void)[] = [], samples: NodeSample[] = [];
   const scheduler = new PriorityProbeScheduler({
-    now: () => 0, probe: () => new Promise(resolve => complete.push(resolve)),
+    now: () => 0, probe: () => new Promise<boolean>(resolve => complete.push(resolve)).then(quality),
     sample: async sample => { samples.push(sample); }, activeDelay: () => 1000,
     backupInterval: () => 30000, round: () => assert.fail("stale round"), error: error => { throw error; },
   });
@@ -75,7 +76,7 @@ test("single-node groups still produce complete all-down evidence", async () => 
   const rounds: Map<string, boolean>[] = [];
   const scheduler = new PriorityProbeScheduler({
     now: () => now,
-    probe: async () => { now += 10; return false; },
+    probe: async () => { now += 10; return quality(false); },
     sample: async () => {}, activeDelay: () => 1000, backupInterval: () => 30000,
     round: (_at, _end, result) => rounds.push(result), error: error => { throw error; },
   });
@@ -93,7 +94,7 @@ test("a proven healthy backup can be chosen before unrelated slow probes finish"
   let finishSlow!: (value: boolean) => void;
   const scheduler = new PriorityProbeScheduler({
     now: () => now,
-    probe: async c => c.tag === "slow" ? new Promise<boolean>(r => { finishSlow = r; }) : c.tag === "healthy",
+    probe: async c => c.tag === "slow" ? new Promise<boolean>(r => { finishSlow = r; }).then(quality) : quality(c.tag === "healthy"),
     sample: async sample => {
       const next = policy.record(new Map([[sample.tag, sample.reachable]]), now, sample.at);
       if (next) chosen.push(next);

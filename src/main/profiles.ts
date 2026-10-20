@@ -45,13 +45,14 @@ import { backgroundIdleGate } from "./backgroundIdle";
 import { daemonState } from "./state";
 import { HealthLog } from "./healthLog";
 import { CoreLogArchive } from "./coreLogArchive";
-import { showSystemProxyRecoveryWarning } from "./notifications";
+import { dismissSystemProxyRecoveryWarning, showSystemProxyRecoveryWarning } from "./notifications";
 import { WindowsProxyMonitor, type WindowsProxyContext, type WindowsProxyHealth, type ProxyRecoveryCheckpoint } from "./windowsProxyMonitor";
 import { setTimeout as priorityRetryDelay } from "node:timers/promises";
 import { PriorityActivity } from "./priorityActivity";
 import { PriorityMonitors, regionalRecoveryEvidence, type PriorityPreference } from "./priorityMonitors";
 import { PriorityProfileCache, prioritySummaryState } from "./priorityProfileCache";
 import { PriorityFailover, addProbeRoutes, allocateProbePorts, priorityGroups, priorityProbeTags, reconcilePrioritySettings, type Candidate } from "./priorityFailover";
+import { priorityProbeResult, type PriorityProbeResult } from "./priorityLatency";
 import { loadPrioritySettings, parsePrioritySettings, prioritySettingsSnapshot, savePrioritySettings, priorityContextRevision, type PrioritySettings } from "./prioritySettings";
 import type { PriorityPanelState, PrioritySummaryState } from "../shared/ipc";
 import {
@@ -636,13 +637,13 @@ async function runPriorityCheck(): Promise<void> {
   finally { priorityBusy = false; }
 }
 
-async function probePriorityCandidate(candidate: Candidate, policy: PriorityFailover): Promise<boolean> {
+async function probePriorityCandidate(candidate: Candidate, policy: PriorityFailover): Promise<PriorityProbeResult> {
   const samples = await Promise.allSettled(["www.gstatic.com", "www.cloudflare.com", "chatgpt.com"].map(targetHost =>
     probeSystemProxy({ server: "127.0.0.1", port: candidate.port }, { targetHost, path: "/", timeoutMs: policy.settings.probeTimeoutMs })));
-  const reachable = samples.filter(s => s.status === "fulfilled").length >= 2;
-  recordSystemProxyHealth("priority-probe", { node: candidate.tag, reachable,
+  const result = priorityProbeResult(samples);
+  recordSystemProxyHealth("priority-probe", { node: candidate.tag, ...result, latencyMetric: "https-response",
     samples: samples.map(s => s.status === "fulfilled" ? s.value : { error: systemProxyHealthError(s.reason) }) });
-  return reachable;
+  return result;
 }
 
 function priorityRecoveryEvidence(): "unavailable" | "all-down" | "reachable" {
@@ -659,7 +660,7 @@ let windowsProxyHealth: WindowsProxyHealth = process.platform === "win32" ? "ina
 let localProxyIntent = 0;
 let localProxyPaused = false;
 const localProxyCheckpoint = new Preference<ProxyRecoveryCheckpoint>("windows_proxy_recovery_checkpoint", "available", value => {
-  if (value === "available" || value === "used" || value === "foreign" || value === "unknown") return value;
+  if (value === "available" || value === "repairing" || value === "used" || value === "foreign" || value === "unknown") return value;
   throw new Error("invalid Windows proxy recovery checkpoint");
 });
 const windowsProxyMonitor = new WindowsProxyMonitor({
@@ -667,6 +668,7 @@ const windowsProxyMonitor = new WindowsProxyMonitor({
   enqueue: runServiceOperation,
   changed: state => { windowsProxyHealth = state; notifyChanged(); },
   warning: state => showSystemProxyRecoveryWarning(state === "foreign"),
+  dismissWarning: dismissSystemProxyRecoveryWarning,
   log: recordSystemProxyHealth,
   loadCheckpoint: () => localProxyCheckpoint.get(),
   saveCheckpoint: state => { if (localProxyCheckpoint.get() !== state) localProxyCheckpoint.set(state); },
@@ -1379,7 +1381,7 @@ const handlers: Record<
 
   async reapplySystemProxy(): Promise<void> {
     // Explicit action still does not overwrite foreign/PAC settings. Reuse the
-    // same confirmed, serial repair path; it consumes the one repair allowance.
+    // same confirmed, serial repair path; this explicit action grants a new attempt.
     if (windowsProxyHealth !== "suspended") throw new Error("当前不处于暂停状态；恢复结果不明时请检查后重新启动代理。");
     const context = await localProxyContext();
     if (!context || !context.current()) throw new Error("请先启动系统代理模式。");

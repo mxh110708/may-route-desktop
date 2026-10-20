@@ -1,4 +1,5 @@
-import { PriorityFailover, priorityTagsFromGroups, type Candidate } from "./priorityFailover";
+import { PriorityFailover, priorityTagsFromGroups, type Candidate, type PrioritySwitchReason } from "./priorityFailover";
+import type { PriorityProbeResult } from "./priorityLatency";
 import { priorityGroupSettings, type PrioritySettings } from "./prioritySettings";
 import { PriorityProbeScheduler, type NodeSample } from "./priorityProbeScheduler";
 import { PriorityProbeBudget } from "./priorityProbeBudget";
@@ -7,7 +8,7 @@ export interface PriorityPreference { preferred: string | null; selected: string
 export interface PriorityMonitor {
   group: string; policy: PriorityFailover; candidates: Candidate[]; active: boolean; epoch: number;
   scheduler: PriorityProbeScheduler | null; schedulerKey: string; switching: boolean;
-  target: { tag: string; until: number; applied: boolean } | null;
+  target: { tag: string; until: number; applied: boolean; reason: PrioritySwitchReason } | null;
   results: { at: number; finishedAt: number; reachable: Map<string, boolean> } | null;
   selectedEvidence: NodeSample | null;
   observedSelected: string | null;
@@ -27,7 +28,7 @@ export class PriorityMonitors {
     now(): number;
     selected(group: string): string | null;
     current(): boolean;
-    probe(candidate: Candidate, policy: PriorityFailover): Promise<boolean>;
+    probe(candidate: Candidate, policy: PriorityFailover): Promise<PriorityProbeResult>;
     switch(group: string, from: string, to: string, current: () => boolean): Promise<boolean>;
     changed(event: string, details: Record<string, unknown>): void;
     error(error: unknown): void;
@@ -119,15 +120,16 @@ export class PriorityMonitors {
         monitor.schedulerKey = key; monitor.results = null; monitor.selectedEvidence = null;
         monitor.scheduler = new PriorityProbeScheduler({
           now: this.deps.now,
-          probe: async (candidate, lane) => await this.budget.run(lane, current, () => this.deps.probe(candidate, monitor.policy)) ?? false,
+          probe: async (candidate, lane) => await this.budget.run(lane, current, () => this.deps.probe(candidate, monitor.policy)) ?? { reachable: false, latencyMs: null },
           sample: async sample => {
             if (!current()) return;
             if (sample.tag === selected) monitor.selectedEvidence = sample;
-            const next = monitor.policy.record(new Map([[sample.tag, sample.reachable]]), this.deps.now(), sample.at);
+            const next = monitor.policy.record(new Map([[sample.tag, sample.reachable]]), this.deps.now(), sample.at, new Map([[sample.tag, sample.latencyMs]]));
             if (next && next !== selected) void this.switch(monitor, selected, next, current, contextCurrent);
           },
           activeDelay: reachable => monitor.policy.nextProbeDelay(selected, new Map([[selected, reachable]])),
-          backupInterval: () => monitor.selectedEvidence?.reachable === false ? monitor.policy.settings.failureIntervalMs : monitor.policy.settings.healthyIntervalMs,
+          backupInterval: () => monitor.selectedEvidence?.reachable === false || monitor.policy.latencyHigh(selected)
+            ? monitor.policy.settings.failureIntervalMs : monitor.policy.settings.healthyIntervalMs,
           round: (at, finishedAt, reachable) => { if (current() && reachable.size === monitor.candidates.length) monitor.results = { at, finishedAt, reachable }; },
           error: this.deps.error,
         });
@@ -142,11 +144,12 @@ export class PriorityMonitors {
     monitor.switching = true;
     try {
       const at = this.deps.now();
-      const reachable = await this.budget.run("active", current, () => this.deps.probe(candidate, monitor.policy));
-      if (!current() || reachable === undefined) return;
-      monitor.policy.record(new Map([[next, reachable]]), this.deps.now(), at);
-      if (!reachable || monitor.policy.decide(this.deps.now()) !== next) return;
-      monitor.target = { tag: next, until: this.deps.now() + 5000, applied: false };
+      const result = await this.budget.run("active", current, () => this.deps.probe(candidate, monitor.policy));
+      if (!current() || result === undefined) return;
+      monitor.policy.record(new Map([[next, result.reachable]]), this.deps.now(), at, new Map([[next, result.latencyMs]]));
+      const decision = monitor.policy.decision(this.deps.now());
+      if (!result.reachable || decision?.tag !== next) return;
+      monitor.target = { tag: next, until: this.deps.now() + 5000, applied: false, reason: decision.reason };
       const switched = await this.deps.switch(monitor.group, selected, next, () => current() && monitor.policy.decide(this.deps.now()) === next);
       if (!contextCurrent()) return;
       if (!switched) { monitor.target = null; return; }
@@ -155,11 +158,12 @@ export class PriorityMonitors {
     finally { monitor.switching = false; }
   }
   private completed(monitor: PriorityMonitor, from: string, to: string): void {
-    monitor.target = { tag: to, until: this.deps.now() + 5000, applied: true };
+    const reason = monitor.target?.reason ?? "recovered";
+    monitor.target = { tag: to, until: this.deps.now() + 5000, applied: true, reason };
     monitor.policy.switched(to, this.deps.now()); monitor.epoch++;
     monitor.results = null; monitor.selectedEvidence = null;
     this.deps.changed("priority-switch-completed", { group: monitor.group, from, to, preferred: monitor.policy.preferred,
-      reason: to === monitor.policy.preferred ? "首选恢复稳定" : "健康备用入口" });
+      reason: reason === "latency" ? "持续超过本组延迟上限，切换至低于上限且留有余量的备用" : reason === "recovered" ? "首选恢复稳定" : "当前入口不可达，切换至健康备用" });
   }
 }
 

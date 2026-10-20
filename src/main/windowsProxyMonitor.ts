@@ -3,7 +3,10 @@ import { WindowsProxyRecoveryGate, type WindowsProxyOwnership } from "./systemPr
 export type WindowsProxyHealth = "inactive" | "unsupported" | "healthy" | "confirming" | "repairing" | "foreign" | "suspended" | "unknown";
 export const WINDOWS_PROXY_POLL_MS = 2_000;
 export const WINDOWS_PROXY_CONFIRM_MS = 1_000;
-export type ProxyRecoveryCheckpoint = "available" | "used" | "foreign" | "unknown";
+export const WINDOWS_PROXY_REARM_MS = 15_000;
+export const WINDOWS_PROXY_WARNING_MS = 10_000;
+const MAX_OBSERVATION_GAP_MS = 5_000;
+export type ProxyRecoveryCheckpoint = "available" | "repairing" | "used" | "foreign" | "unknown";
 
 export interface WindowsProxyContext {
   // Service/profile/mode identity, deliberately NOT node selection or network epoch.
@@ -22,6 +25,10 @@ export class WindowsProxyMonitor {
   private uncertain = false;
   private contextKey: string | null = null;
   private loaded = false;
+  private checkpoint: ProxyRecoveryCheckpoint = "available";
+  private ownedSince: number | null = null;
+  private ownedAt: number | null = null;
+  private warningSince: { state: WindowsProxyHealth; since: number; at: number } | null = null;
   private warned = new Set<WindowsProxyHealth>();
   private state: WindowsProxyHealth = "inactive";
   constructor(private readonly deps: {
@@ -29,32 +36,71 @@ export class WindowsProxyMonitor {
     enqueue(operation: () => Promise<void>): Promise<void>;
     changed(state: WindowsProxyHealth): void;
     warning(state: WindowsProxyHealth): void;
+    dismissWarning?(): void;
+    now?(): number;
     log(event: string, details?: Record<string, unknown>): void;
     loadCheckpoint?(): ProxyRecoveryCheckpoint;
     saveCheckpoint?(state: ProxyRecoveryCheckpoint): void;
   }) {}
 
-  // Only explicit user start/reapply grants a fresh allowance. Never called by a
-  // node switch, stale sample, profile refresh, or automatic service reload.
+  // Explicit user start/reapply resets all gates, including foreign/unknown.
+  // Node switches and automatic reloads never grant a fresh repair allowance.
   newSession(): void {
-    this.deps.saveCheckpoint?.("available");
+    this.saveCheckpoint("available");
     this.loaded = true;
     this.session++;
     this.gate.reset();
     this.uncertain = false;
+    this.resetObservation();
     this.warned.clear();
     this.publish("inactive");
   }
 
+  private now(): number { return this.deps.now?.() ?? Date.now(); }
+  private saveCheckpoint(state: ProxyRecoveryCheckpoint): void {
+    this.deps.saveCheckpoint?.(state);
+    this.checkpoint = state;
+  }
+  private resetObservation(): void {
+    this.ownedSince = this.ownedAt = null;
+    this.warningSince = null;
+  }
+  private observeOwned(ownership: WindowsProxyOwnership): void {
+    if (ownership !== "owned") { this.ownedSince = this.ownedAt = null; return; }
+    const now = this.now();
+    if (this.ownedAt === null || now < this.ownedAt || now - this.ownedAt > MAX_OBSERVATION_GAP_MS) this.ownedSince = now;
+    this.ownedAt = now;
+    // Only a spent matching-endpoint repair can rearm. A real foreign takeover
+    // or uncertain RPC remains latched until an explicit Route action.
+    if (this.checkpoint === "used" && this.ownedSince !== null && now - this.ownedSince >= WINDOWS_PROXY_REARM_MS) {
+      this.saveCheckpoint("available");
+      this.gate.reset();
+      this.warned.delete("suspended");
+      this.deps.log("windows-proxy-recovery-rearmed", { stableMs: now - this.ownedSince });
+    }
+  }
+
   private publish(state: WindowsProxyHealth): void {
+    const previous = this.state;
     if (state !== this.state) {
       this.state = state;
       this.deps.changed(state);
       this.deps.log("windows-proxy-state", { state });
     }
-    if (["foreign", "suspended"].includes(state) && !this.warned.has(state)) {
-      this.warned.add(state);
-      this.deps.warning(state);
+    if (state !== "foreign" && state !== "suspended") {
+      this.warningSince = null;
+      if (previous === "foreign" || previous === "suspended") this.deps.dismissWarning?.();
+      return;
+    }
+    const now = this.now(), warning = this.checkpoint === "foreign" ? "foreign" : state;
+    const prior = this.warningSince;
+    if (!prior || prior.state !== warning || now < prior.at || now - prior.at > MAX_OBSERVATION_GAP_MS) {
+      this.warningSince = { state: warning, since: now, at: now };
+    } else prior.at = now;
+    if (now - this.warningSince!.since >= WINDOWS_PROXY_WARNING_MS && !this.warned.has(warning)) {
+      this.warned.add(warning);
+      this.deps.warning(warning);
+      this.deps.log("windows-proxy-warning", { state: warning });
     }
   }
 
@@ -64,26 +110,29 @@ export class WindowsProxyMonitor {
     const session = this.session;
     try {
       if (!this.loaded) {
-        const checkpoint = this.deps.loadCheckpoint?.() ?? "available";
-        if (checkpoint !== "available") this.gate.suspend();
-        this.uncertain = checkpoint === "unknown";
+        this.checkpoint = this.deps.loadCheckpoint?.() ?? "available";
+        if (this.checkpoint !== "available") this.gate.suspend();
+        this.uncertain = this.checkpoint === "unknown" || this.checkpoint === "repairing";
         this.loaded = true;
       }
       const context = await this.deps.context();
       if (session !== this.session) return WINDOWS_PROXY_CONFIRM_MS;
       if (!context) {
         this.contextKey = null;
+        this.resetObservation();
         this.gate.interruptConfirmation();
         this.publish("inactive");
         return WINDOWS_PROXY_POLL_MS;
       }
       if (context.key !== this.contextKey) {
         this.contextKey = context.key;
+        this.resetObservation();
         this.gate.interruptConfirmation();
       }
       const ownership = await context.read();
       if (session !== this.session || !context.current()) {
         this.gate.interruptConfirmation();
+        this.resetObservation();
         return WINDOWS_PROXY_CONFIRM_MS;
       }
       if (this.pending) return WINDOWS_PROXY_CONFIRM_MS;
@@ -93,8 +142,9 @@ export class WindowsProxyMonitor {
         this.publish("unknown");
         return WINDOWS_PROXY_POLL_MS;
       }
+      this.observeOwned(ownership);
       const action = this.gate.observe(ownership);
-      if (action === "foreign") this.deps.saveCheckpoint?.("foreign");
+      if (action === "foreign" && this.checkpoint !== "foreign") this.saveCheckpoint("foreign");
       if (action === "repair") {
         this.pending = true;
         this.publish("repairing");
@@ -107,22 +157,27 @@ export class WindowsProxyMonitor {
             if (before !== "detached") {
               this.gate.cancelPendingRepair();
               this.gate.observe(before);
-              if (before === "foreign") this.deps.saveCheckpoint?.("foreign");
+              if (before === "foreign") this.saveCheckpoint("foreign");
               this.publish(before === "owned" ? "healthy" : before);
               return;
             }
-            this.deps.saveCheckpoint?.("used");
+            // Persist intent before dispatch. A crash here must not turn a
+            // possibly in-flight command into a completed repair on restart.
+            this.saveCheckpoint("repairing");
             dispatched = true;
             await context.repair();
-            if (session !== this.session || !context.current()) return;
+            if (session !== this.session) return;
+            this.saveCheckpoint("used");
+            if (!context.current()) return;
             const after = await context.read();
             if (session !== this.session || !context.current()) return;
+            if (after === "foreign") { this.gate.observe(after); this.saveCheckpoint("foreign"); }
             this.publish(after === "owned" ? "healthy" : after === "detached" ? "suspended" : after);
             this.deps.log("windows-proxy-repair-result", { state: after });
           } catch {
             if (session === this.session) {
               this.uncertain = true;
-              this.deps.saveCheckpoint?.("unknown");
+              this.saveCheckpoint("unknown");
               this.publish("unknown");
               this.deps.log("windows-proxy-repair-result-unknown");
             }
@@ -141,6 +196,7 @@ export class WindowsProxyMonitor {
     } catch {
       if (session === this.session) {
         this.gate.interruptConfirmation();
+        this.resetObservation();
         this.publish("unknown");
       }
       return WINDOWS_PROXY_POLL_MS;

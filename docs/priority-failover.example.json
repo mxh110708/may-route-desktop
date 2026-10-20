@@ -6,6 +6,10 @@
     "US-West-LA Entry": [],
     "HK Entry": []
   },
+  "groupLatencyCeilings": {
+    "US-West-LA Entry": 450,
+    "HK Entry": 200
+  },
   "failureRounds": 3,
   "backupSuccessRounds": 2,
   "recoverySuccessRounds": 3,

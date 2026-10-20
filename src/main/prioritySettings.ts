@@ -4,12 +4,13 @@ import { createHash, randomUUID } from "node:crypto";
 import type { PrioritySettings } from "../shared/priority";
 export type { PrioritySettings } from "../shared/priority";
 
-// Initial defaults only: no provider names or priorities are inferred by the application.
+// No provider names or priorities are inferred. Explicit regional labels have latency presets.
 export const DEFAULT_PRIORITY_SETTINGS: PrioritySettings = {
   enabled: true, group: "", order: [], groupOrders: {}, failureRounds: 3,
   backupSuccessRounds: 2, recoverySuccessRounds: 3, recoveryStableMs: 120000,
   failbackCooldownMs: 60000,
   probeTimeoutMs: 8000, healthyIntervalMs: 30000, failureIntervalMs: 10000,
+  groupLatencyCeilings: {},
 };
 
 export function parsePrioritySettings(value: unknown): PrioritySettings {
@@ -18,6 +19,11 @@ export function parsePrioritySettings(value: unknown): PrioritySettings {
   for (const key of Object.keys(input)) if (!Object.hasOwn(DEFAULT_PRIORITY_SETTINGS, key)) throw new Error(`未知故障切换配置项：${key}`);
   const settings = { ...DEFAULT_PRIORITY_SETTINGS, ...input } as PrioritySettings;
   if (typeof settings.enabled !== "boolean" || typeof settings.group !== "string" || (settings.group !== "" && !settings.group.trim())) throw new Error("enabled 必须是布尔值，group 必须是分组名称或尚未选择的空字符串");
+  if (!settings.groupLatencyCeilings || typeof settings.groupLatencyCeilings !== "object" || Array.isArray(settings.groupLatencyCeilings)) throw new Error("groupLatencyCeilings 必须为按入口组保存的上限对象");
+  settings.groupLatencyCeilings = Object.fromEntries(Object.entries(settings.groupLatencyCeilings).map(([group, value]) => {
+    if (!group.trim() || !Number.isInteger(value) || value !== 0 && (value < 100 || value > 60000)) throw new Error("每个入口组的延迟上限必须为 100–60000 的整数毫秒；0 表示仅检测连通性");
+    return [group, value];
+  }));
   if (!Array.isArray(settings.order) || settings.order.some(v => typeof v !== "string" || !v.trim()) || new Set(settings.order).size !== settings.order.length) throw new Error("order 必须是无重复节点名称的数组");
   for (const key of ["failureRounds", "backupSuccessRounds", "recoverySuccessRounds"] as const) {
     if (!Number.isInteger(settings[key]) || settings[key] < 1 || settings[key] > 20) throw new Error(`${key} 必须为 1–20 的整数`);
@@ -47,7 +53,8 @@ export function priorityGroupOrder(settings: PrioritySettings, group: string): s
 }
 
 export function priorityGroupSettings(settings: PrioritySettings, group: string): PrioritySettings {
-  return { ...settings, group, order: [...priorityGroupOrder(settings, group)], groupOrders: {} };
+  return { ...settings, group, order: [...priorityGroupOrder(settings, group)], groupOrders: {},
+    groupLatencyCeilings: Object.hasOwn(settings.groupLatencyCeilings, group) ? { [group]: settings.groupLatencyCeilings[group] } : {} };
 }
 
 export async function loadPrioritySettings(path: string): Promise<PrioritySettings> {

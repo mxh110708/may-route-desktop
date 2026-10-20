@@ -1,6 +1,7 @@
 import type { Candidate } from "./priorityFailover";
+import type { PriorityProbeResult } from "./priorityLatency";
 
-export interface NodeSample { tag: string; at: number; reachable: boolean }
+export interface NodeSample extends PriorityProbeResult { tag: string; at: number }
 
 /** One dedicated active-node lane plus at most two background candidate lanes. */
 export class PriorityProbeScheduler {
@@ -14,7 +15,7 @@ export class PriorityProbeScheduler {
   get busy(): boolean { return this.activeBusy || this.backupBusy; }
   constructor(private readonly deps: {
     now(): number;
-    probe(candidate: Candidate, lane: "active" | "backup"): Promise<boolean>;
+    probe(candidate: Candidate, lane: "active" | "backup"): Promise<PriorityProbeResult>;
     sample(sample: NodeSample): Promise<void>;
     activeDelay(reachable: boolean): number;
     backupInterval(): number;
@@ -36,12 +37,12 @@ export class PriorityProbeScheduler {
       this.activeBusy = true;
       void (async () => {
         const at = this.deps.now();
-        const reachable = await this.deps.probe(active, "active");
+        const result = await this.deps.probe(active, "active");
         if (!current()) return;
-        this.latestActive = { tag: selected, at, reachable };
+        this.latestActive = { tag: selected, at, ...result };
         await this.deps.sample(this.latestActive);
         if (current()) {
-          this.activeDue = this.deps.now() + this.deps.activeDelay(reachable);
+          this.activeDue = this.deps.now() + this.deps.activeDelay(result.reachable);
           this.publishRound(selected);
         }
       })().catch(this.deps.error).finally(() => { this.activeBusy = false; });
@@ -56,10 +57,10 @@ export class PriorityProbeScheduler {
           while (queue.length && current()) {
             const candidate = queue.shift()!;
             const at = this.deps.now();
-            const reachable = await this.deps.probe(candidate, "backup");
+            const result = await this.deps.probe(candidate, "backup");
             if (!current()) return;
-            results.set(candidate.tag, reachable);
-            await this.deps.sample({ tag: candidate.tag, at, reachable });
+            results.set(candidate.tag, result.reachable);
+            await this.deps.sample({ tag: candidate.tag, at, ...result });
           }
         };
         await Promise.all([worker(), worker()]);

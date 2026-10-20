@@ -47,7 +47,7 @@ export function classifyWindowsProxyOwnership(reading: {
   return reading.enabled ? "owned" : "detached";
 }
 
-/** At most one automatic reassertion per service session; repeated changes yield. */
+/** One confirmed repair until the monitor observes a fresh stable owned period. */
 export class WindowsProxyRecoveryGate {
   private detachedSamples = 0;
   private repairAttempted = false;
@@ -63,15 +63,16 @@ export class WindowsProxyRecoveryGate {
       return "unknown";
     }
     if (state === "foreign") {
+      this.detachedSamples = 0;
       this.suspended = true;
       return "foreign";
     }
+    this.detachedSamples = Math.min(2, this.detachedSamples + 1);
+    if (this.detachedSamples < 2) return "retry";
     if (this.suspended || this.repairAttempted) {
       this.suspended = true;
       return "suspended";
     }
-    this.detachedSamples++;
-    if (this.detachedSamples < 2) return "retry";
     this.repairAttempted = true;
     return "repair";
   }

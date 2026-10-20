@@ -212,6 +212,7 @@ test("ownership repair confirms twice and never fights another proxy repeatedly"
   assert.equal(gate.observe("detached"), "retry");
   assert.equal(gate.observe("detached"), "repair");
   assert.equal(gate.observe("owned"), "healthy");
+  assert.equal(gate.observe("detached"), "retry");
   assert.equal(gate.observe("detached"), "suspended");
   assert.equal(gate.observe("foreign"), "foreign");
   gate.reset();

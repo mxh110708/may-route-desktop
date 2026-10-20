@@ -11,4 +11,5 @@ export interface PrioritySettings {
   probeTimeoutMs: number;
   healthyIntervalMs: number;
   failureIntervalMs: number;
+  groupLatencyCeilings: Record<string, number>;
 }

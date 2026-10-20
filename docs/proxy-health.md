@@ -1,5 +1,53 @@
 # System proxy quality monitoring
 
+## 2026-10-20: stable-period system-proxy keeping
+
+Local proxy keeping now confirms repeated matching-endpoint disablement before
+either repair or suspension. A completed repair rearms only after fifteen seconds
+of continuously observed, owned-and-enabled proxy state. Brief off/on changes
+cannot repeatedly replenish the allowance; foreign/PAC settings and uncertain
+commands remain latched until an explicit Route action.
+
+Notifications require ten observed seconds of persistent abnormal state, and
+the current warning is closed when that state ends. The existing local poll loop
+is reused. An in-flight command is persisted as `repairing`, so restarting during
+the command does not grant a duplicate write. See [the incident analysis](WINDOWS-PROXY-GUARD-2026-10-20.zh-CN.md)
+for the observed timeline, exact conditions and test boundaries. Earlier
+one-repair-per-session descriptions below are historical.
+
+## 2026-10-20: regional absolute latency limits
+
+Current source also handles sustained high latency on reachable entry nodes.
+Each selector has one absolute post-TLS HTTPS response budget. Explicit regional labels use
+conservative built-in presets; a saved `groupLatencyCeilings` value overrides
+the preset, and zero disables latency switching for that group. Unknown or mixed
+regions require an explicit limit. No normal-baseline learning or relative-rise
+estimation is used. See [the configuration guide](PRIORITY-FAILOVER.zh-CN.md) for
+the preset table and exact matching rules.
+
+The second-fastest successful `httpMs` result is the latency metric: time from
+sending HEAD after the TLS handshake until complete response headers arrive.
+Connection and handshake setup are excluded; network RTT, server processing and
+header transfer remain included, so this is not ICMP ping. One slow site cannot
+condemn a node. Three consecutive over-limit samples spanning at
+least ten seconds are required, with five-second waits between confirmations.
+An eligible backup must repeatedly stay at or below 80% of the group's limit,
+pass an immediate verification and still be valid when the selector mutation
+executes. Configured priority, freshness, cooldown, stable failback, manual
+selection and session cancellation all remain in effect. All-slow candidates
+leave the selector unchanged and do not become all-unreachable evidence.
+Whole-proxy health recovery keeps its existing independent rules.
+
+Presets assume access from mainland China. US West's 450 ms budget was compared
+against local historical responses; other regional budgets remain provisional.
+See [the design analysis](LATENCY-PRESETS-2026-10-20.zh-CN.md) for evidence and
+limitations. The monitor performs no baseline learning at runtime.
+
+Healthy probe cadence, shared concurrency limits and idle-region suspension
+are unchanged. The monitor reuses existing timings and keeps constant-sized
+counters per node, without timing-history arrays or additional timers. Earlier
+release descriptions below are historical where they differ from this section.
+
 ## 1.14.2-mxh.2: independent local-state and active-node monitoring
 
 See [the 2026-09-27 revision](RECOVERY-REVISION-20260927.zh-CN.md) for the current

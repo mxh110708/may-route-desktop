@@ -12,14 +12,20 @@ const RECONNECT_DELAY = 3000;
 const shown = new Map<string, Notification>();
 let systemProxyWarning: Notification | null = null;
 
+export function dismissSystemProxyRecoveryWarning(): void {
+  const notification = systemProxyWarning;
+  systemProxyWarning = null;
+  notification?.close();
+}
+
 export function showSystemProxyRecoveryWarning(foreign = false): void {
   if (!Notification.isSupported()) return;
-  systemProxyWarning?.close();
+  dismissSystemProxyRecoveryWarning();
   const notification = new Notification({
-    title: "May Route 系统代理未保持开启",
+    title: "May Route 系统代理守护已暂停",
     body: foreign
-      ? "Windows 代理地址、PAC 或自动检测设置已改变。May Route 已避让，请检查其他代理软件；详情见概述中的 Windows 系统代理状态。"
-      : "自动恢复额度已用尽，或此前检测到代理归属变化。为避免与其他代理争夺，May Route 已暂停自动恢复；请检查其他代理软件，详情见概述。",
+      ? "检测到 Windows 代理地址、PAC 或自动检测设置变化。May Route 已暂停自动接管；如需恢复，请在 Route 中主动操作。"
+      : "系统代理持续关闭，近期自动恢复后尚未稳定。May Route 已暂停重复写入；可在概述中手动恢复，或在代理恢复稳定后继续自动守护。",
   });
   systemProxyWarning = notification;
   notification.on("close", () => {

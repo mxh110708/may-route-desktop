@@ -41,16 +41,19 @@ export class PriorityProfileCache {
     const settings = reconcilePriorityGroups(groups, snapshot.settings);
     const ordersKey = (orders: PrioritySettings["groupOrders"]) => JSON.stringify(Object.keys(orders ?? {}).sort()
       .filter(group => orders![group].length).map(group => [group, orders![group]]));
+    const ceilingsKey = (ceilings: PrioritySettings["groupLatencyCeilings"]) => JSON.stringify(Object.entries(ceilings).sort(([a], [b]) => a.localeCompare(b)));
     const value = {
       hash, groups, settings,
       revision: priorityContextRevision(snapshot.revision, profileId, content),
-      reconciled: JSON.stringify(settings.order) !== JSON.stringify(snapshot.settings.order) || ordersKey(settings.groupOrders) !== ordersKey(snapshot.settings.groupOrders),
+      reconciled: JSON.stringify(settings.order) !== JSON.stringify(snapshot.settings.order) || ordersKey(settings.groupOrders) !== ordersKey(snapshot.settings.groupOrders) ||
+        ceilingsKey(settings.groupLatencyCeilings) !== ceilingsKey(snapshot.settings.groupLatencyCeilings),
     };
     for (const group of groups) { Object.freeze(group.nodes); Object.freeze(group); }
     Object.freeze(groups);
     Object.freeze(settings.order);
     for (const order of Object.values(settings.groupOrders ?? {})) Object.freeze(order);
     Object.freeze(settings.groupOrders);
+    Object.freeze(settings.groupLatencyCeilings);
     Object.freeze(settings);
     Object.freeze(value);
     this.entry = { key, value };

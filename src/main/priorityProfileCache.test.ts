@@ -73,7 +73,18 @@ test("cached group and order arrays cannot be changed by a reader", () => {
   assert.throws(() => result.settings.order.push("stale"));
   assert.throws(() => result.settings.groupOrders!.entry.push("stale"));
   assert.throws(() => { result.settings.groupOrders!.other = ["stale"]; });
+  assert.throws(() => { result.settings.groupLatencyCeilings.entry = 700; });
   assert.deepEqual(cache.read("one", content("old"), "system-proxy", snapshot).settings.order, ["old"]);
+});
+
+test("removed region ceilings request one reconciliation save even when node orders do not change", () => {
+  const cache = new PriorityProfileCache();
+  const settings = parsePrioritySettings({ group: "entry", order: ["old"], groupLatencyCeilings: { entry: 450, removed: 700 } });
+  const value = cache.read("one", content("old"), "system-proxy", { settings, revision: "one" });
+  assert.deepEqual(value.settings.order, ["old"]);
+  assert.deepEqual(value.settings.groupLatencyCeilings, { entry: 450 });
+  assert.equal(value.reconciled, true);
+  assert.equal(cache.read("one", content("old"), "system-proxy", { settings: value.settings, revision: "two" }).reconciled, false);
 });
 
 test("different map key order or following a group's default never asks for a duplicate save", () => {

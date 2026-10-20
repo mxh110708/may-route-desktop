@@ -36,10 +36,12 @@ test("one atomic save retains every group's order across disk reload and stale s
   const dir = await mkdtemp(join(tmpdir(), "route-priority-groups-")), path = join(dir, "policy.json");
   try {
     const initial = await prioritySettingsSnapshot(path);
-    await savePrioritySettings(path, { ...initial.settings, group: "Europe", groupOrders: { West: ["w2", "w1"], Europe: ["e2", "e1"] } }, initial.revision);
+    await savePrioritySettings(path, { ...initial.settings, group: "Europe", groupOrders: { West: ["w2", "w1"], Europe: ["e2", "e1"] },
+      groupLatencyCeilings: { West: 2500, Europe: 0 } }, initial.revision);
     const saved = await prioritySettingsSnapshot(path);
     assert.deepEqual(priorityGroupSettings(saved.settings, "West").order, ["w2", "w1"]);
     assert.deepEqual(priorityGroupSettings(saved.settings, "Europe").order, ["e2", "e1"]);
+    assert.deepEqual(saved.settings.groupLatencyCeilings, { West: 2500, Europe: 0 });
     const content = await readFile(path, "utf8");
     await assert.rejects(savePrioritySettings(path, initial.settings, initial.revision), /修改/);
     assert.equal(await readFile(path, "utf8"), content);

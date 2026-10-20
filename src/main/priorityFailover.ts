@@ -1,5 +1,6 @@
 import { createServer } from "node:net";
 import { DEFAULT_PRIORITY_SETTINGS, priorityGroupOrder, type PrioritySettings } from "./prioritySettings";
+import { PriorityLatency } from "./priorityLatency";
 
 export interface Candidate { tag: string; port: number }
 
@@ -31,7 +32,9 @@ export function reconcilePriorityGroups(groups: { tag: string; nodes: string[] }
     const saved = priorityGroupOrder(settings, item.tag).filter(tag => members.has(tag));
     return saved.length ? [[item.tag, saved]] : [];
   }));
-  return { ...settings, order, groupOrders };
+  const groupTags = new Set(groups.map(item => item.tag));
+  const groupLatencyCeilings = Object.fromEntries(Object.entries(settings.groupLatencyCeilings).filter(([tag]) => groupTags.has(tag)));
+  return { ...settings, order, groupOrders, groupLatencyCeilings };
 }
 
 export function priorityTags(content: string, settings: PrioritySettings = DEFAULT_PRIORITY_SETTINGS): string[] {
@@ -83,25 +86,27 @@ export function addProbeRoutes(content: string, ports: number[], settings: Prior
 }
 
 interface History { good: number; bad: number; since: number; at: number; sampleAt: number }
-/** No latency ranking. A failure round requires at least two independent HTTPS failures. */
+export type PrioritySwitchReason = "unreachable" | "latency" | "recovered";
+/** Keep configured priority; switch for confirmed failures or sustained poor quality. */
 export class PriorityFailover {
   private history = new Map<string, History>();
+  private readonly latency: PriorityLatency;
   private lastSwitch = -Infinity;
   private expected: string | null = null;
   private lastSample: number | null = null;
   private preferredTag: string | null;
   constructor(readonly tags: string[], readonly settings: PrioritySettings = DEFAULT_PRIORITY_SETTINGS, preferred?: string | null) {
     this.preferredTag = preferred ?? tags[0] ?? null;
+    this.latency = new PriorityLatency(settings);
   }
   get preferred(): string | null { return this.preferredTag; }
-  clearSamples(): void { this.history.clear(); this.lastSample = null; }
+  clearSamples(): void { this.history.clear(); this.latency.clear(); this.lastSample = null; }
   isMonitored(tag: string): boolean { return this.tags.includes(tag); }
   observeSelection(selected: string): boolean {
     const changed = this.expected !== null && selected !== this.expected;
     if (changed) {
       this.preferredTag = selected;
-      this.history.clear();
-      this.lastSample = null;
+      this.clearSamples();
       this.lastSwitch = -Infinity;
     }
     this.expected = selected;
@@ -114,24 +119,29 @@ export class PriorityFailover {
     return this.preferredTag !== null && this.isMonitored(this.preferredTag)
       ? [this.preferredTag, ...this.tags.filter(tag => tag !== this.preferredTag)] : this.tags;
   }
-  record(results: Map<string, boolean>, now: number, sampleAt = now): string | null {
+  record(results: Map<string, boolean>, now: number, sampleAt = now, latencies?: ReadonlyMap<string, number | null>): string | null {
     // Sleep/offline gaps are not proof of continuous recovery or consecutive failure.
     const staleGap = Math.max(120000, Math.max(this.settings.healthyIntervalMs, this.settings.failureIntervalMs) + this.tags.length * this.settings.probeTimeoutMs + 30000);
-    if (this.lastSample !== null && now - this.lastSample > staleGap) this.history.clear();
+    if (this.lastSample !== null && now - this.lastSample > staleGap) this.clearSamples();
     this.lastSample = now;
     for (const tag of this.tags) {
       // Independent active/backup lanes only count samples actually collected.
       if (!results.has(tag)) continue;
       const prior = this.history.get(tag);
       if (prior && sampleAt < prior.sampleAt) continue;
+      if (prior && now - prior.at > staleGap) this.latency.clear(tag);
       const old = prior && now - prior.at <= staleGap ? prior : { good: 0, bad: 0, since: now, at: now, sampleAt };
       const ok = results.get(tag) === true;
+      this.latency.record(tag, ok, latencies?.get(tag), now, sampleAt);
       this.history.set(tag, ok ? { good: old.good + 1, bad: 0, since: old.good ? old.since : now, at: now, sampleAt } : { good: 0, bad: old.bad + 1, since: now, at: now, sampleAt });
     }
     return this.decide(now);
   }
   decide(now: number): string | null {
-    if (this.expected === null || !this.isMonitored(this.expected)) return null;
+    return this.decision(now)?.tag ?? null;
+  }
+  decision(now: number): { tag: string; reason: PrioritySwitchReason } | null {
+    if (!this.settings.enabled || this.expected === null || !this.isMonitored(this.expected)) return null;
     const current = this.history.get(this.expected);
     const fresh = (h: History | undefined): h is History => !!h && now >= h.at &&
       now - h.at <= Math.max(45000, this.settings.healthyIntervalMs + this.settings.probeTimeoutMs + 5000);
@@ -139,20 +149,32 @@ export class PriorityFailover {
     const ranked = this.rankedTags();
     if (current.bad >= this.settings.failureRounds) {
       // A newly failed backup must not be trapped by the failback cooldown.
-      return ranked.find(t => t !== this.expected && fresh(this.history.get(t)) && this.history.get(t)!.good >= this.settings.backupSuccessRounds) ?? null;
+      const ready = ranked.filter(t => t !== this.expected && fresh(this.history.get(t)) && this.history.get(t)!.good >= this.settings.backupSuccessRounds);
+      const tag = ready.find(t => !this.latency.high(t)) ?? ready[0];
+      return tag ? { tag, reason: "unreachable" } : null;
     }
     if (now - this.lastSwitch < this.settings.failbackCooldownMs) return null;
+    if (this.latency.confirmed(this.expected, now)) {
+      const tag = ranked.find(t => t !== this.expected && fresh(this.history.get(t)) &&
+        this.history.get(t)!.good >= this.settings.backupSuccessRounds && this.latency.backupReady(t));
+      return tag ? { tag, reason: "latency" } : null;
+    }
     const index = ranked.indexOf(this.expected);
-    return ranked.slice(0, index).find(t => {
+    const tag = ranked.slice(0, index).find(t => {
       const h = this.history.get(t);
-      return fresh(h) && h.good >= this.settings.recoverySuccessRounds && now - h.since >= this.settings.recoveryStableMs;
-    }) ?? null;
+      return fresh(h) && h.good >= this.settings.recoverySuccessRounds && now - h.since >= this.settings.recoveryStableMs && this.latency.recovered(t, now);
+    });
+    return tag ? { tag, reason: "recovered" } : null;
   }
+  latencyHigh(tag: string): boolean { return this.latency.high(tag); }
   nextProbeDelay(selected: string, results: ReadonlyMap<string, boolean>): number {
     const failures = this.history.get(selected)?.bad ?? 0;
     // Confirm a newly failed active node promptly, but back off after the configured
     // failure threshold when no backup is ready; do not probe indefinitely at burst rate.
     if (this.isMonitored(selected) && failures > 0 && failures < this.settings.failureRounds) return 1_000;
+    // Slow but reachable nodes need a short sustained window, not one-second
+    // failure bursts. This caps confirmation traffic at one probe per five seconds.
+    if (this.latency.high(selected)) return this.latency.confirmed(selected, this.lastSample ?? 0) ? this.settings.failureIntervalMs : 5_000;
     return [...results.values()].every(Boolean) ? this.settings.healthyIntervalMs : this.settings.failureIntervalMs;
   }
   switched(tag: string, now: number): void { this.expected = tag; this.lastSwitch = now; }
