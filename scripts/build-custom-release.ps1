@@ -112,6 +112,7 @@ try {
     Invoke-Pnpm test:localization
     Invoke-Pnpm test:installer-preflight
     Invoke-Pnpm test:installer-shortcuts
+    Invoke-Pnpm test:installer-shortcut-host
     Invoke-Pnpm test:installer-storage
     Invoke-Pnpm typecheck
     Invoke-Pnpm -Arguments @("-C", "dashboard", "test", "--", "--run")

@@ -58,6 +58,7 @@
     "test:priority-editor:electron": "electron scripts/testPrioritySettings.cjs",
     "test:installer-preflight": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/test-installer-preflight.ps1",
     "test:installer-shortcuts": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/test-installer-shortcuts.ps1",
+    "test:installer-shortcut-host": "node scripts/testInstallerShortcutHost.cjs",
     "test:installer-storage": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/test-installer-storage.ps1",
     "typecheck": "tsc -b"
   },

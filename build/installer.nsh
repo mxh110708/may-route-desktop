@@ -11,6 +11,7 @@ SetFont "Segoe UI" 9
 
 Var shortcutUserPrograms
 Var shortcutUserDesktop
+Var shortcutPowerShell
 
 !ifndef BUILD_UNINSTALLER
   !include StrContains.nsh
@@ -751,8 +752,16 @@ FunctionEnd
   Pop $0
 !macroend
 
+!macro selectShortcutPowerShell
+  StrCpy $shortcutPowerShell "$SYSDIR\WindowsPowerShell\v1.0\powershell.exe"
+  ${if} ${RunningX64}
+    StrCpy $shortcutPowerShell "$WINDIR\Sysnative\WindowsPowerShell\v1.0\powershell.exe"
+  ${endif}
+!macroend
+
 !macro resolveShortcutUserFolders
-  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\installer-shortcuts.ps1" -Operation Resolve -PathsFile "$PLUGINSDIR\shortcut-user-folders.ini"'
+  !insertmacro selectShortcutPowerShell
+  nsExec::ExecToLog '"$shortcutPowerShell" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\installer-shortcuts.ps1" -Operation Resolve -PathsFile "$PLUGINSDIR\shortcut-user-folders.ini"'
   Pop $1
   ${if} $1 != 0
     Abort "Could not resolve the session user's shortcut folders."
@@ -770,7 +779,7 @@ FunctionEnd
   SetShellVarContext all
   StrCpy $R5 "$SMPROGRAMS"
   StrCpy $R6 "$DESKTOP"
-  nsExec::ExecToLog '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\installer-shortcuts.ps1" -Operation ${OPERATION} -ExecutablePath "$INSTDIR\${APP_EXECUTABLE_FILENAME}" -ShortcutName "${SHORTCUT_NAME}" -UserPrograms "$shortcutUserPrograms" -CommonPrograms "$R5" -UserDesktop "$shortcutUserDesktop" -CommonDesktop "$R6"'
+  nsExec::ExecToLog '"$shortcutPowerShell" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\installer-shortcuts.ps1" -Operation ${OPERATION} -ExecutablePath "$INSTDIR\${APP_EXECUTABLE_FILENAME}" -ShortcutName "${SHORTCUT_NAME}" -UserPrograms "$shortcutUserPrograms" -CommonPrograms "$R5" -UserDesktop "$shortcutUserDesktop" -CommonDesktop "$R6"'
   Pop $1
 !macroend
 
