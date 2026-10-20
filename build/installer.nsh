@@ -65,7 +65,6 @@ Var shortcutPowerShell
   Var installationDirectoryBrowseButton
   Var migrateExistingData
   Var migrateExistingDataCheckbox
-  Var migrateLegacyApplicationData
   Var dataTransitionStatePath
   Var hasExistingInstallation
   Var hasInstallationLayout
@@ -538,7 +537,6 @@ FunctionEnd
   StrCpy $reinstallExistingInstallation 0
   StrCpy $customInstallation 0
   StrCpy $migrateExistingData ${BST_CHECKED}
-  StrCpy $migrateLegacyApplicationData 0
   StrCpy $applicationDataDirectory ""
   StrCpy $previousApplicationDataDirectory ""
   StrCpy $fixedApplicationDataDirectory ""
@@ -563,10 +561,6 @@ FunctionEnd
   ReadRegStr $0 HKLM "${INSTALL_REGISTRY_KEY}" "InstallLocation"
   ${if} $0 != ""
     StrCpy $hasExistingInstallation 1
-  ${endif}
-  ${if} $hasExistingInstallation == 1
-  ${andif} $hasInstallationLayout == 0
-    StrCpy $migrateLegacyApplicationData 1
   ${endif}
   ${if} $installationID == ""
     System::Call 'ole32::CoCreateGuid(g .s)'
@@ -743,11 +737,7 @@ FunctionEnd
 !macroend
 
 !macro executeDataTransition OPERATION
-  StrCpy $3 ""
-  ${if} $migrateLegacyApplicationData == 1
-    StrCpy $3 "-MigrateLegacyApplicationData"
-  ${endif}
-  nsExec::ExecToStack '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\installer-data.ps1" -Operation ${OPERATION} -StatePath "$dataTransitionStatePath" -PreviousApplicationDataDirectory "$previousApplicationDataDirectory" -ApplicationDataDirectory "$applicationDataDirectory" -PreviousDaemonDataDirectory "$previousDaemonDataDirectory" -DaemonDataDirectory "$daemonDataDirectory" -PreviousInstallationID "$previousInstallationID" -InstallationID "$installationID" $3'
+  nsExec::ExecToStack '"$SYSDIR\WindowsPowerShell\v1.0\powershell.exe" -NoProfile -NonInteractive -ExecutionPolicy Bypass -File "$PLUGINSDIR\installer-data.ps1" -Operation ${OPERATION} -StatePath "$dataTransitionStatePath" -PreviousApplicationDataDirectory "$previousApplicationDataDirectory" -ApplicationDataDirectory "$applicationDataDirectory" -PreviousDaemonDataDirectory "$previousDaemonDataDirectory" -DaemonDataDirectory "$daemonDataDirectory" -PreviousInstallationID "$previousInstallationID" -InstallationID "$installationID"'
   Pop $1
   Pop $0
 !macroend
@@ -1438,8 +1428,6 @@ FunctionEnd
   ${endif}
   StrCpy $2 0
   ${if} $reinstallExistingInstallation == 1
-    StrCpy $2 1
-  ${elseif} $migrateLegacyApplicationData == 1
     StrCpy $2 1
   ${elseif} $hasExistingInstallation == 0
   ${andif} $hasInstallationLayout == 1

@@ -9,8 +9,7 @@ param(
     [string]$PreviousDaemonDataDirectory,
     [string]$DaemonDataDirectory,
     [string]$PreviousInstallationID,
-    [string]$InstallationID,
-    [switch]$MigrateLegacyApplicationData
+    [string]$InstallationID
 )
 
 $ErrorActionPreference = "Stop"
@@ -267,7 +266,6 @@ function Get-WindowsProfiles() {
         $profiles[$profileKey.PSChildName] = [PSCustomObject]@{
             UserID = $profileKey.PSChildName
             DataPath = Join-Path $profilePath "AppData\Roaming\may-route"
-            LegacyDataPath = Join-Path $profilePath "AppData\Roaming\may-route-legacy"
         }
     }
     return $profiles
@@ -344,43 +342,14 @@ function Resolve-DefaultApplicationDataProfile(
     throw "The Windows profile for the application data directory is unavailable."
 }
 
-function Resolve-LegacyApplicationDataProfile([hashtable]$Profiles) {
-    $activeProfile = Get-ActiveWindowsProfile $Profiles
-    if ($null -ne $activeProfile) {
-        if ((Test-Path -LiteralPath $activeProfile.DataPath) -or
-            -not (Test-Path -LiteralPath $activeProfile.LegacyDataPath)) {
-            return $null
-        }
-        return $activeProfile
-    }
-    $profilesWithLegacyData = @($Profiles.Values | Where-Object {
-        -not (Test-Path -LiteralPath $_.DataPath) -and
-            (Test-Path -LiteralPath $_.LegacyDataPath)
-    })
-    if ($profilesWithLegacyData.Count -eq 1) {
-        return $profilesWithLegacyData[0]
-    }
-    if ($profilesWithLegacyData.Count -eq 0) {
-        return $null
-    }
-    throw "The Windows profile for the legacy application data directory is unavailable."
-}
-
 function Get-ApplicationDataCopy(
     [string]$PreviousDirectory,
     [string]$NewDirectory,
-    [string]$PreviousID,
-    [bool]$MigrateLegacyData
+    [string]$PreviousID
 ) {
     $profiles = Get-WindowsProfiles
     $profile = $null
-    if ($MigrateLegacyData) {
-        $profile = Resolve-LegacyApplicationDataProfile $profiles
-        if ($null -eq $profile) {
-            return $null
-        }
-        $source = $profile.LegacyDataPath
-    } elseif ([string]::IsNullOrWhiteSpace($PreviousDirectory)) {
+    if ([string]::IsNullOrWhiteSpace($PreviousDirectory)) {
         $profile = Resolve-DefaultApplicationDataProfile $profiles ""
         if ($null -eq $profile) {
             return $null
@@ -530,7 +499,6 @@ try {
         throw "An unfinished data migration already exists."
     }
     $applicationChanged = (
-        $MigrateLegacyApplicationData -or
         -not (Test-SamePath `
             $PreviousApplicationDataDirectory `
             $ApplicationDataDirectory)
@@ -567,8 +535,7 @@ try {
         $copy = Get-ApplicationDataCopy `
             $PreviousApplicationDataDirectory `
             $ApplicationDataDirectory `
-            $PreviousInstallationID `
-            $MigrateLegacyApplicationData
+            $PreviousInstallationID
         if ($null -ne $copy -and -not (Test-SamePath $copy.Source $copy.Target)) {
             $state.ApplicationCopies = @($copy)
         }
