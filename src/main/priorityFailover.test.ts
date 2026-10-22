@@ -60,13 +60,13 @@ test("failure switching explicitly excludes the current entry from backup candid
   assert.equal(p.record(sample(tags[1]), 10000), null);
   assert.equal(p.record(sample(tags[1]), 20000), tags[1]);
 });
-test("confirmation burst resets on recovery and backs off if every backup stays down", () => {
+test("recovery keeps a bounded quality review and confirmed all-down failures back off", () => {
   const p = new PriorityFailover(tags); p.observeSelection(tags[0]);
   const down = sample();
   assert.equal(p.record(down, 0), null);
   assert.equal(p.nextProbeDelay(tags[0], down), 1000);
   assert.equal(p.record(sample(tags[0]), 1000), null);
-  assert.equal(p.nextProbeDelay(tags[0], sample(tags[0])), 10000);
+  assert.equal(p.nextProbeDelay(tags[0], sample(tags[0])), 5000);
   assert.equal(p.record(down, 11000), null);
   assert.equal(p.nextProbeDelay(tags[0], down), 1000);
   assert.equal(p.record(down, 12000), null);
@@ -74,6 +74,8 @@ test("confirmation burst resets on recovery and backs off if every backup stays 
   assert.equal(p.record(down, 13000), null);
   assert.equal(p.nextProbeDelay(tags[0], down), 10000);
   assert.equal(p.record(sample(...tags), 23000), null);
+  assert.equal(p.nextProbeDelay(tags[0], sample(...tags)), 5000);
+  for (const now of [28000, 33000, 38000, 43000]) p.record(sample(...tags), now);
   assert.equal(p.nextProbeDelay(tags[0], sample(...tags)), 30000);
 });
 test("recovery requires 120 seconds of continuous good rounds, not lowest latency", () => {

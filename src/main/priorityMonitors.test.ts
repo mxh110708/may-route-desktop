@@ -169,3 +169,26 @@ test("a healthy active region prevents a global restart caused by another region
   assert.equal(regionalRecoveryEvidence(["selected-healthy", "unavailable"]), "unavailable");
   assert.equal(regionalRecoveryEvidence([]), "reachable");
 });
+
+test("slow complete-request results propagate through monitoring and fresh verification cancels the switch", async () => {
+  let now = 0, backupChecks = 0, switched = 0;
+  const monitor = new PriorityMonitors({ now: () => now, current: () => true, selected: () => "w1",
+    probe: async candidate => {
+      if (candidate.tag === "w1") return { reachable: true, latencyMs: 200, totalMs: 3000 };
+      backupChecks++;
+      return { reachable: true, latencyMs: 200, totalMs: backupChecks >= 3 ? 2900 : 800 };
+    }, switch: async () => { switched++; return true; }, changed: () => {}, error: error => { throw error; } });
+  monitor.configure([{ tag: "US-West-LA Entry", nodes: ["w1", "w2"] }], candidates.filter(c => c.tag.startsWith("w")), parsePrioritySettings({ group: "US-West-LA Entry", healthyIntervalMs: 5000, failureIntervalMs: 5000 }));
+  for (now = 0; now <= 15000; now += 5000) { monitor.tick(["US-West-LA Entry"]); await drain(); }
+  assert.ok(backupChecks >= 3); assert.equal(switched, 0);
+});
+
+test("manual preference callbacks persist the current selection in the same snapshot", async () => {
+  let selected = "w1", now = 0; const snapshots: unknown[] = [];
+  const monitor = new PriorityMonitors({ now: () => now, current: () => true, selected: () => selected,
+    probe: async () => quality(true), switch: async () => false,
+    changed: event => { if (event === "priority-manual-preference") snapshots.push(monitor.preferences); }, error: error => { throw error; } });
+  monitor.configure(groups, candidates, settings()); monitor.tick(["West"]); await drain();
+  now = 1000; selected = "w2"; monitor.tick(["West"]); await drain();
+  assert.deepEqual(snapshots, [{ West: { preferred: "w2", selected: "w2" } }]);
+});

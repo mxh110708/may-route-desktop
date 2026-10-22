@@ -6,6 +6,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { HealthLog } from "./healthLog";
 import test from "node:test";
+import { priorityProbeResult } from "./priorityLatency";
+import { PriorityFailover } from "./priorityFailover";
+import { parsePrioritySettings } from "./prioritySettings";
 
 import {
   ConsecutiveFailureRecovery,
@@ -154,6 +157,36 @@ test("quality policy distinguishes one slow site from repeated multi-site degrad
   assert.equal(classifyProxyQuality([slow, failed, good]).recoverable, false);
   assert.equal(classifyProxyQuality([slow, slow, slow]).recoverable, false);
   assert.equal(classifyProxyQuality([failed, failed, good]).recoverable, true);
+});
+
+test("a real delayed TLS handshake stays reachable but complete-request quality can trigger failover", async () => {
+  const cert = await readFile(new URL("./testdata/health-test-cert.txt", import.meta.url));
+  const key = await readFile(new URL("./testdata/health-test-key.txt", import.meta.url));
+  const tls = createTLSServer({ cert, key }, s => { s.on("error", () => {}); s.once("data", () => s.end("HTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n")); });
+  tls.on("tlsClientError", () => {});
+  await new Promise<void>(resolve => tls.listen(0, "127.0.0.1", resolve));
+  const target = tls.address(); assert.ok(target && typeof target !== "string");
+  const proxy = createServer(s => { s.on("error", () => {}); s.once("data", () => {
+    const upstream = createConnection(target.port, "127.0.0.1", () => {
+      s.pause();
+      s.write("HTTP/1.1 200 Connection established\r\n\r\n");
+      const timer = setTimeout(() => { if (!s.destroyed) { s.pipe(upstream); upstream.pipe(s); } }, 1600);
+      s.once("close", () => clearTimeout(timer));
+    });
+    s.once("close", () => upstream.destroy()); upstream.on("error", () => s.destroy());
+  }); });
+  await new Promise<void>(resolve => proxy.listen(0, "127.0.0.1", resolve));
+  const address = proxy.address(); assert.ok(address && typeof address !== "string");
+  try {
+    const samples = await Promise.allSettled(Array.from({ length: 3 }, () => probeSystemProxy({ server: "127.0.0.1", port: address.port }, { ca: cert, timeoutMs: 5000 })));
+    const result = priorityProbeResult(samples);
+    assert.equal(result.reachable, true); assert.ok(result.totalMs! >= 1500);
+    assert.ok(samples.every(s => s.status === "fulfilled" && s.value.tlsMs >= 1500));
+    const policy = new PriorityFailover(["main", "backup"], parsePrioritySettings({ group: "HK Entry" })); policy.observeSelection("main");
+    for (const at of [0, 5000, 10000]) assert.equal(policy.record(new Map([["main", true], ["backup", true]]), at, at,
+      new Map([["main", result.latencyMs], ["backup", 50]]), new Map([["main", result.totalMs], ["backup", 300]])), at === 10000 ? "backup" : null);
+    assert.equal(policy.decision(10000)?.reason, "latency");
+  } finally { await new Promise<void>(resolve => proxy.close(() => resolve())); await new Promise<void>(resolve => tls.close(() => resolve())); }
 });
 
 test("selection snapshots ignore list order but invalidate results after any group switch", () => {

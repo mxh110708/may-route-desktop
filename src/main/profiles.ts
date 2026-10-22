@@ -641,7 +641,7 @@ async function probePriorityCandidate(candidate: Candidate, policy: PriorityFail
   const samples = await Promise.allSettled(["www.gstatic.com", "www.cloudflare.com", "chatgpt.com"].map(targetHost =>
     probeSystemProxy({ server: "127.0.0.1", port: candidate.port }, { targetHost, path: "/", timeoutMs: policy.settings.probeTimeoutMs })));
   const result = priorityProbeResult(samples);
-  recordSystemProxyHealth("priority-probe", { node: candidate.tag, ...result, latencyMetric: "https-response",
+  recordSystemProxyHealth("priority-probe", { node: candidate.tag, ...result, latencyMetric: "https-response", totalMetric: "https-complete",
     samples: samples.map(s => s.status === "fulfilled" ? s.value : { error: systemProxyHealthError(s.reason) }) });
   return result;
 }

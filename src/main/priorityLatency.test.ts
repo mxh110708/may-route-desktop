@@ -20,16 +20,16 @@ const successful = (httpMs: number, totalMs = httpMs + 1000): PromiseFulfilledRe
 const failed: PromiseRejectedResult = { status: "rejected", reason: new Error("fixture") };
 
 test("latency requires a two-target quorum; one slow site cannot condemn a reachable node", () => {
-  assert.deepEqual(priorityProbeResult([successful(1400), successful(200), successful(100)]), { reachable: true, latencyMs: 200 });
-  assert.deepEqual(priorityProbeResult([successful(100), successful(1400), failed]), { reachable: true, latencyMs: 1400 });
-  assert.deepEqual(priorityProbeResult([successful(100), failed, failed]), { reachable: false, latencyMs: null });
-  assert.deepEqual(priorityProbeResult([successful(NaN), successful(200), successful(100)]), { reachable: true, latencyMs: null });
-  assert.deepEqual(priorityProbeResult([successful(-1), successful(200)]), { reachable: true, latencyMs: null });
+  assert.deepEqual(priorityProbeResult([successful(1400), successful(200), successful(100)]), { reachable: true, latencyMs: 200, totalMs: 1200 });
+  assert.deepEqual(priorityProbeResult([successful(100), successful(1400), failed]), { reachable: true, latencyMs: 1400, totalMs: 2400 });
+  assert.deepEqual(priorityProbeResult([successful(100), failed, failed]), { reachable: false, latencyMs: null, totalMs: null });
+  assert.deepEqual(priorityProbeResult([successful(NaN), successful(200), successful(100)]), { reachable: true, latencyMs: null, totalMs: null });
+  assert.deepEqual(priorityProbeResult([successful(-1), successful(200)]), { reachable: true, latencyMs: null, totalMs: 1200 });
 });
 
-test("response latency excludes long connection and TLS setup without estimating ICMP RTT", () => {
-  assert.deepEqual(priorityProbeResult([successful(180, 2800), successful(200, 3900), successful(700, 900)]), { reachable: true, latencyMs: 200 });
-  assert.deepEqual(priorityProbeResult([successful(650, 700), successful(680, 750), successful(100, 8000)]), { reachable: true, latencyMs: 650 });
+test("response and complete HTTPS measurements stay separate and neither estimates ICMP RTT", () => {
+  assert.deepEqual(priorityProbeResult([successful(180, 2800), successful(200, 3900), successful(700, 900)]), { reachable: true, latencyMs: 200, totalMs: 2800 });
+  assert.deepEqual(priorityProbeResult([successful(650, 700), successful(680, 750), successful(100, 8000)]), { reachable: true, latencyMs: 650, totalMs: 750 });
 });
 
 test("the analyzed US West ceiling accepts normal variation and confirms a sustained over-limit response", () => {
@@ -53,13 +53,13 @@ test("absolute limits work without baseline learning and require three probes sp
   assert.deepEqual(policy.decision(10000), { tag: "backup", reason: "latency" });
 });
 
-test("an isolated spike or any below-limit probe resets the slow streak", () => {
+test("a normal round resets the consecutive streak but does not erase repeated poor quality", () => {
   const { sample } = fixture();
   assert.equal(sample(0, { primary: 1600, backup: 200 }), null);
   assert.equal(sample(5000, { primary: 1500, backup: 200 }), null);
   assert.equal(sample(10000, { primary: 999, backup: 200 }), null);
   assert.equal(sample(15000, { primary: 1600, backup: 200 }), null);
-  assert.equal(sample(20000, { primary: 1500, backup: 200 }), null);
+  assert.equal(sample(20000, { primary: 1500, backup: 200 }), "backup");
   assert.equal(sample(25000, { primary: 1600 }), "backup");
 });
 
@@ -176,4 +176,88 @@ test("limits are validated, isolated per group and reconciled with a replaced pr
   const literal = parsePrioritySettings(JSON.parse('{"group":"__proto__","groupLatencyCeilings":{"__proto__":1500}}'));
   assert.deepEqual(priorityGroupSettings(literal, "__proto__").groupLatencyCeilings, JSON.parse('{"__proto__":1500}'));
   assert.deepEqual(parsePrioritySettings({ group: "West" }).groupLatencyCeilings, {});
+});
+
+test("slow setup triggers regional quality failover even with a fast HTTP response", () => {
+  const settings = parsePrioritySettings({ group: "US-West-LA Entry" });
+  const policy = new PriorityFailover(["main", "backup"], settings); policy.observeSelection("main");
+  for (const at of [0, 5000, 10000]) {
+    assert.equal(policy.record(new Map([["main", true], ["backup", true]]), at, at,
+      new Map([["main", 206], ["backup", 209]]), new Map([["main", 2923], ["backup", 900]])), at === 10000 ? "backup" : null);
+  }
+  assert.equal(policy.decision(10000)?.reason, "latency");
+});
+
+test("the same complete-request delay can exceed a nearby region's budget while remaining acceptable for US West", () => {
+  for (const group of ["HK Entry", "US-West-LA Entry"]) {
+    const policy = new PriorityFailover(["main", "backup"], parsePrioritySettings({ group })); policy.observeSelection("main");
+    for (const at of [0, 5000, 10000]) policy.record(new Map([["main", true], ["backup", true]]), at, at,
+      new Map([["main", 100], ["backup", 50]]), new Map([["main", 1600], ["backup", 300]]));
+    assert.equal(policy.decide(10000), group === "HK Entry" ? "backup" : null);
+  }
+});
+
+test("one slow target and ordinary complete-request variation do not condemn a node", () => {
+  const policy = new PriorityFailover(["main", "backup"], parsePrioritySettings({ group: "US-West-LA Entry" })); policy.observeSelection("main");
+  for (let i = 0; i < 20; i++) {
+    const result = priorityProbeResult([successful(200, 800), successful(220, [900, 1622, 1100][i % 3]), successful(3000, 7000)]);
+    assert.equal(policy.record(new Map([["main", true], ["backup", true]]), i * 5000, i * 5000,
+      new Map([["main", result.latencyMs], ["backup", 210]]), new Map([["main", result.totalMs], ["backup", 850]])), null);
+  }
+});
+
+test("a reachable backup with slow setup is not an improvement and cannot authorize a quality switch", () => {
+  const policy = new PriorityFailover(["main", "backup"], parsePrioritySettings({ group: "US-West-LA Entry" })); policy.observeSelection("main");
+  for (const at of [0, 5000, 10000]) assert.equal(policy.record(new Map([["main", true], ["backup", true]]), at, at,
+    new Map([["main", 200], ["backup", 190]]), new Map([["main", 3000], ["backup", 1700]])), null);
+});
+
+test("repeated failures separated by successes switch after a bounded majority window", () => {
+  const { policy, sample } = fixture();
+  const sequence = [false, 200, false, 210, false] as const;
+  for (let i = 0; i < sequence.length; i++) assert.equal(sample(i * 5000, { primary: sequence[i], backup: 200 }), i === 4 ? "backup" : null);
+  assert.equal(policy.decision(20000)?.reason, "unstable");
+});
+
+test("confirmed intermittent failure backs off when no stable backup is available", () => {
+  const { policy, sample } = fixture();
+  for (const [i, value] of ([false, 200, false, 200, false] as const).entries()) assert.equal(sample(i * 5000, { primary: value, backup: false }), null);
+  assert.equal(policy.nextProbeDelay("primary", new Map([["primary", false]])), policy.settings.failureIntervalMs);
+});
+
+test("recurring setup stalls and failures can jointly establish poor quality without a learned baseline", () => {
+  const p = new PriorityFailover(["main", "backup"], parsePrioritySettings({ group: "US-West-LA Entry" })); p.observeSelection("main");
+  for (let i = 0; i < 5; i++) assert.equal(p.record(new Map([["main", i !== 2], ["backup", true]]), i * 5000, i * 5000,
+    new Map([["main", 200], ["backup", 190]]), new Map([["main", i % 2 === 0 ? 3000 : 800], ["backup", 850]])), i === 4 ? "backup" : null);
+  assert.equal(p.decision(20000)?.reason, "unstable");
+});
+
+test("one incident gets bounded confirmation then normal cadence resumes; sparse incidents never form a window", () => {
+  const { policy, sample } = fixture();
+  sample(0, { primary: false, backup: 200 });
+  for (const at of [5000, 10000, 15000, 20000, 25000]) assert.equal(sample(at, { primary: 200, backup: 200 }), null);
+  assert.equal(policy.qualitySuspect("primary"), false);
+  const sparse = fixture();
+  for (let i = 0; i < 20; i++) assert.equal(sparse.sample(i * 60000, { primary: i % 2 ? 200 : false, backup: 200 }), null);
+});
+
+test("unknown timings, older samples and manual changes cannot build an instability window", () => {
+  const { policy, sample } = fixture();
+  sample(0, { primary: false, backup: 200 });
+  for (const at of [1000, 5000, 10000]) assert.equal(sample(at, { primary: false, backup: 200 }, -1), null);
+  assert.equal(sample(15000, { primary: null, backup: 200 }), null);
+  assert.equal(sample(20000, { primary: false, backup: 200 }), null);
+  policy.observeSelection("backup"); policy.observeSelection("primary");
+  assert.equal(sample(25000, { primary: false, backup: 200 }), null);
+});
+
+test("an isolated failed round or ordinary jitter cannot turn an old majority into a late switch", () => {
+  const { policy, sample } = fixture();
+  for (const [i, value] of ([false, 200, false, 200, 200] as const).entries()) assert.equal(sample(i * 5000, { primary: value, backup: 200 }), null);
+  assert.equal(policy.decide(25000), null);
+  assert.equal(sample(30000, { primary: 200, backup: 200 }), null);
+  policy.clearSamples();
+  for (const [i, value] of ([false, 200, false, 200, false] as const).entries()) sample(100000 + i * 5000, { primary: value, backup: 200 });
+  policy.switched("backup", 120000);
+  for (const [i, value] of ([false, 200, false, 200, false] as const).entries()) assert.equal(sample(121000 + i * 1000, { primary: 200, backup: value, last: 200 }), null);
 });

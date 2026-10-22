@@ -107,6 +107,7 @@ export class PriorityMonitors {
       }
       if (monitor.policy.observeSelection(selected)) {
         monitor.epoch++; monitor.results = null; monitor.selectedEvidence = null;
+        monitor.observedSelected = selected;
         this.deps.changed("priority-manual-preference", { group, selected, preferred: monitor.policy.preferred });
       }
       monitor.observedSelected = selected;
@@ -124,11 +125,11 @@ export class PriorityMonitors {
           sample: async sample => {
             if (!current()) return;
             if (sample.tag === selected) monitor.selectedEvidence = sample;
-            const next = monitor.policy.record(new Map([[sample.tag, sample.reachable]]), this.deps.now(), sample.at, new Map([[sample.tag, sample.latencyMs]]));
+            const next = monitor.policy.record(new Map([[sample.tag, sample.reachable]]), this.deps.now(), sample.at, new Map([[sample.tag, sample.latencyMs]]), new Map([[sample.tag, sample.totalMs]]));
             if (next && next !== selected) void this.switch(monitor, selected, next, current, contextCurrent);
           },
           activeDelay: reachable => monitor.policy.nextProbeDelay(selected, new Map([[selected, reachable]])),
-          backupInterval: () => monitor.selectedEvidence?.reachable === false || monitor.policy.latencyHigh(selected)
+          backupInterval: () => monitor.selectedEvidence?.reachable === false || monitor.policy.qualitySuspect(selected)
             ? monitor.policy.settings.failureIntervalMs : monitor.policy.settings.healthyIntervalMs,
           round: (at, finishedAt, reachable) => { if (current() && reachable.size === monitor.candidates.length) monitor.results = { at, finishedAt, reachable }; },
           error: this.deps.error,
@@ -146,7 +147,7 @@ export class PriorityMonitors {
       const at = this.deps.now();
       const result = await this.budget.run("active", current, () => this.deps.probe(candidate, monitor.policy));
       if (!current() || result === undefined) return;
-      monitor.policy.record(new Map([[next, result.reachable]]), this.deps.now(), at, new Map([[next, result.latencyMs]]));
+      monitor.policy.record(new Map([[next, result.reachable]]), this.deps.now(), at, new Map([[next, result.latencyMs]]), new Map([[next, result.totalMs]]));
       const decision = monitor.policy.decision(this.deps.now());
       if (!result.reachable || decision?.tag !== next) return;
       monitor.target = { tag: next, until: this.deps.now() + 5000, applied: false, reason: decision.reason };
@@ -163,7 +164,7 @@ export class PriorityMonitors {
     monitor.policy.switched(to, this.deps.now()); monitor.epoch++;
     monitor.results = null; monitor.selectedEvidence = null;
     this.deps.changed("priority-switch-completed", { group: monitor.group, from, to, preferred: monitor.policy.preferred,
-      reason: reason === "latency" ? "持续超过本组延迟上限，切换至低于上限且留有余量的备用" : reason === "recovered" ? "首选恢复稳定" : "当前入口不可达，切换至健康备用" });
+      reason: reason === "latency" ? "响应或完整建连请求持续超过地区上限，切换至健康备用" : reason === "unstable" ? "短时间内反复失败或超限，切换至稳定备用" : reason === "recovered" ? "首选恢复稳定" : "当前入口不可达，切换至健康备用" });
   }
 }
 
