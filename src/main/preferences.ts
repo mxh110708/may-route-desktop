@@ -1,4 +1,5 @@
 import { BrowserWindow, ipcMain } from "electron";
+import { PRIORITY_EDITOR_GROUPS_PREFERENCE, parsePriorityEditorGroups } from "@dashboard/lib/priorityEditorPreference";
 
 import {
   PREFERENCES_CALL,
@@ -108,6 +109,7 @@ const rendererPreferences: Record<string, PreferenceParser> = {
   },
   "connection-state-filter": stringChoice("all", "active", "closed"),
   "connection-sort": stringChoice("date", "traffic", "trafficTotal"),
+  [PRIORITY_EDITOR_GROUPS_PREFERENCE]: parsePriorityEditorGroups,
   "disable-deprecated-warnings": parseBooleanPreference,
   "tailscale-ssh": parseTailscaleSSH,
   "terminal-config": parseTerminalConfig,

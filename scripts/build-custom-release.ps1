@@ -102,6 +102,7 @@ try {
     Invoke-Pnpm test:rpc-limits
     Invoke-Pnpm test:public-rules
     Invoke-Pnpm test:system-proxy-recovery
+    Invoke-Pnpm test:priority-editor:electron
     Invoke-Pnpm test:custom-isolation
     Invoke-Pnpm test:interface-fonts
     Invoke-Pnpm test:tray-placement
