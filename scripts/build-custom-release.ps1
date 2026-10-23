@@ -91,8 +91,8 @@ Push-Location $repositoryRoot
 try {
     Push-Location (Join-Path $repositoryRoot "..\sing-box")
     try {
-        & $resolvedGo test ./experimental/boxdd -run TestWorkerMemory -count=1
-        if ($LASTEXITCODE -ne 0) { throw "Application worker memory lifecycle tests failed." }
+        & $resolvedGo test ./experimental/boxdd -run 'TestWorkerMemory|TestWindowsProxy|TestCancelledSystemProxyWrite' -count=1
+        if ($LASTEXITCODE -ne 0) { throw "Application worker or Windows system proxy ownership tests failed." }
     } finally {
         Pop-Location
     }
