@@ -11,6 +11,7 @@ export function prioritySummaryState(state: PriorityPanelState): PrioritySummary
   return { settings: { group: state.activeGroups?.map(group => group.group).join(" / ") ?? state.settings.group, ...(state.usageAware ? { enabled: state.settings.enabled } : {}) }, running: state.running, directMode: state.directMode,
     active: state.active, preferred: state.preferred, monitoredSelected: state.monitoredSelected,
     needsReload: state.needsReload, selected: state.selected,
+    ...(state.initializing ? { initializing: true } : {}),
     ...(state.usageAware ? { usageAware: true, activityAvailable: state.activityAvailable, activeGroups: state.activeGroups } : {}) };
 }
 

@@ -51,6 +51,7 @@ import { setTimeout as priorityRetryDelay } from "node:timers/promises";
 import { PriorityActivity } from "./priorityActivity";
 import { PriorityMonitors, regionalRecoveryEvidence, type PriorityPreference } from "./priorityMonitors";
 import { PriorityProfileCache, prioritySummaryState } from "./priorityProfileCache";
+import { PriorityRuntimeRestore } from "./priorityRuntimeRestore";
 import { PriorityFailover, addProbeRoutes, allocateProbePorts, priorityGroups, priorityProbeTags, reconcilePrioritySettings, type Candidate } from "./priorityFailover";
 import { priorityProbeResult, type PriorityProbeResult } from "./priorityLatency";
 import { loadPrioritySettings, parsePrioritySettings, prioritySettingsSnapshot, savePrioritySettings, priorityContextRevision, type PrioritySettings } from "./prioritySettings";
@@ -434,7 +435,7 @@ let priorityProfileHash = "";
 let priorityProfileId: string | null = null;
 let priorityCaptureMode: CaptureMode | null = null;
 let priorityStateWrite: Promise<void> = Promise.resolve();
-let restoringPriority = false;
+const priorityRestore = new PriorityRuntimeRestore();
 let priorityConfiguring = false;
 let priorityLastSwitch: PriorityPanelState["lastSwitch"] = null;
 const priorityActivity = new PriorityActivity();
@@ -501,6 +502,7 @@ async function priorityPanelState(): Promise<PriorityPanelState> {
   const rawContent = profileId ? await readFile(contentPath(profileId), "utf8") : null;
   const projection = priorityProfileCache.read(profileId, rawContent, captureModePreference.get(), snapshot);
   const { groups, settings, revision } = projection;
+  if (daemonState.status === ServiceStatus_Type.STARTED && !priorityReady && !priorityConfiguring) await restorePriorityRuntime();
   const running = daemonState.status === ServiceStatus_Type.STARTED;
   const sameRuntime = priorityReady && profileId === priorityProfileId && projection.hash === priorityProfileHash && captureModePreference.get() === priorityCaptureMode;
   if (sameRuntime) { priorityRuntimeSettings = settings; priorityMonitors.update(settings); syncPriorityActivity(); }
@@ -514,7 +516,8 @@ async function priorityPanelState(): Promise<PriorityPanelState> {
     usageAware: true, activityAvailable: priorityActivity.available, activeGroups,
     active: running && !directMode && activeGroups.length > 0,
     preferred: first?.preferred ?? null, monitoredSelected: first?.monitoredSelected ?? false,
-    needsReload: settings.enabled && running && (!sameRuntime || priorityMonitors.needsRoutes),
+    initializing: settings.enabled && running && priorityConfiguring,
+    needsReload: settings.enabled && running && !priorityConfiguring && (!sameRuntime || priorityMonitors.needsRoutes),
     selected: activeGroups.length > 1 ? activeGroups.map(group => `${group.group}: ${group.selected ?? "—"}`).join("；") : first?.selected ?? null,
     lastSwitch: priorityLastSwitch };
 }
@@ -561,28 +564,34 @@ async function loadSavedPriorityPreferences(profile: string | null, hash: string
   }
 }
 async function restorePriorityRuntime(): Promise<void> {
-  if (restoringPriority || priorityConfiguring || priorityReady || daemonState.status !== ServiceStatus_Type.STARTED) return;
-  restoringPriority = true;
+  if (priorityConfiguring || priorityReady || daemonState.status !== ServiceStatus_Type.STARTED) return;
   const generation = priorityGeneration;
-  try {
-    const saved = JSON.parse(await readFile(priorityCachePath(), "utf8"));
-    const profile = selectedProfileId();
-    if (!profile || saved.profile !== profile || saved.mode !== captureModePreference.get()) return;
-    const content = await readFile(contentPath(profile), "utf8");
-    if (saved.hash !== createHash("sha256").update(content).digest("hex") || !Array.isArray(saved.candidates)) return;
-    const projection = priorityProfileCache.read(profile, content, captureModePreference.get(), await prioritySettingsSnapshot(prioritySettingsPath()));
-    const available = new Set(projection.groups.flatMap(group => group.nodes));
-    if (saved.candidates.some((candidate: Candidate) => !available.has(candidate.tag) || !Number.isInteger(candidate.port) || candidate.port < 1024 || candidate.port > 65535) ||
-        new Set(saved.candidates.map((candidate: Candidate) => candidate.tag)).size !== saved.candidates.length || new Set(saved.candidates.map((candidate: Candidate) => candidate.port)).size !== saved.candidates.length) return;
-    if (generation !== priorityGeneration) return;
-    priorityCandidates = saved.candidates; priorityProfileHash = saved.hash; priorityProfileId = profile;
-    priorityCaptureMode = captureModePreference.get(); priorityRuntimeSettings = projection.settings; priorityRuntimeGroups = projection.groups;
-    priorityActivity.configure(priorityRuntimeGroups, content);
-    priorityMonitors.configure(priorityRuntimeGroups, priorityCandidates, projection.settings, savedPriorityPreferences(saved));
-    priorityReady = true; syncPriorityActivity();
-    recordSystemProxyHealth("priority-monitor-restored", { groups: priorityRuntimeGroups.map(group => group.tag), needsRoutes: priorityMonitors.needsRoutes });
-  } catch (error) { if ((error as NodeJS.ErrnoException).code !== "ENOENT") recordSystemProxyHealth("priority-state-read-error", { error: systemProxyHealthError(error) }); }
-  finally { restoringPriority = false; }
+  return priorityRestore.run(async () => {
+    if (priorityConfiguring || generation !== priorityGeneration) return;
+    try {
+      const saved = JSON.parse(await readFile(priorityCachePath(), "utf8"));
+      const profile = selectedProfileId();
+      if (!profile || saved.profile !== profile || saved.mode !== captureModePreference.get()) return;
+      const content = await readFile(contentPath(profile), "utf8");
+      if (saved.hash !== createHash("sha256").update(content).digest("hex") || !Array.isArray(saved.candidates)) return;
+      const projection = priorityProfileCache.read(profile, content, captureModePreference.get(), await prioritySettingsSnapshot(prioritySettingsPath()));
+      const available = new Set(projection.groups.flatMap(group => group.nodes));
+      if (saved.candidates.some((candidate: Candidate) => !available.has(candidate.tag) || !Number.isInteger(candidate.port) || candidate.port < 1024 || candidate.port > 65535) ||
+          new Set(saved.candidates.map((candidate: Candidate) => candidate.tag)).size !== saved.candidates.length || new Set(saved.candidates.map((candidate: Candidate) => candidate.port)).size !== saved.candidates.length) return;
+      if (generation !== priorityGeneration || priorityConfiguring || selectedProfileId() !== profile || saved.mode !== captureModePreference.get()) return;
+      priorityCandidates = saved.candidates; priorityProfileHash = saved.hash; priorityProfileId = profile;
+      priorityCaptureMode = captureModePreference.get(); priorityRuntimeSettings = projection.settings; priorityRuntimeGroups = projection.groups;
+      priorityActivity.configure(priorityRuntimeGroups, content);
+      priorityMonitors.configure(priorityRuntimeGroups, priorityCandidates, projection.settings, savedPriorityPreferences(saved));
+      priorityReady = true; syncPriorityActivity();
+      recordSystemProxyHealth("priority-monitor-restored", { groups: priorityRuntimeGroups.map(group => group.tag), needsRoutes: priorityMonitors.needsRoutes });
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== "ENOENT") {
+        recordSystemProxyHealth("priority-state-read-error", { error: systemProxyHealthError(error) });
+        throw error;
+      }
+    }
+  });
 }
 
 async function archiveBoundary(event: string): Promise<void> {

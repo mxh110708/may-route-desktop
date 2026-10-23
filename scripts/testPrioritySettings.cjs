@@ -82,6 +82,18 @@ async function editLimit(value) {
 }
 window.runPriorityFixture = async () => {
   await wait(() => order() === "w2,w1", "initial state");
+  state = { ...state, initializing: true, needsReload: true, active: false, activeGroups: [], activityAvailable: false };
+  for (const listener of listeners) listener();
+  await wait(() => document.body.textContent.includes("正在初始化监测"), "initializing state");
+  check(!button("重载并应用") && !document.body.textContent.includes("缺少匹配的探测入口"), "initialization must not claim a missing runtime");
+  state = { ...state, initializing: false };
+  for (const listener of listeners) listener();
+  await wait(() => button("重载并应用"), "verified missing runtime");
+  check(reloads === 0, "a confirmed mismatch does not reload automatically");
+  state = { ...state, needsReload: false, active: true, activityAvailable: true,
+    activeGroups: [{ group: "West", selected: "w1", preferred: "w1", monitoredSelected: true }] };
+  for (const listener of listeners) listener();
+  await wait(() => !button("重载并应用") && !document.body.textContent.includes("正在初始化监测"), "restored monitor");
   check(custom() === "true" && button("保存配置").disabled, "initial custom order");
   await select("Europe"); check(custom() === "false" && order() === "e1,e2", "Europe follows config");
   document.querySelector('[aria-label="自定义顺序"]').click(); await delay();
@@ -116,6 +128,10 @@ window.runPriorityFixture = async () => {
   await wait(() => limitInput("Proxy response limit for this group (ms)"), "English latency controls");
   check(document.body.textContent.includes("Three consecutive over-limit probes"), "English rule description");
   check(!document.body.textContent.includes("baseline multiplier"), "no learning controls remain");
+  state = { ...state, initializing: true, needsReload: true, active: false, activeGroups: [] };
+  for (const listener of listeners) listener();
+  await wait(() => document.body.textContent.includes("Initializing monitoring"), "English initialization status");
+  check(!button("重载并应用") && !document.body.textContent.includes("正在初始化监测"), "English initializing view remains neutral");
   check(reloads === 0, "save must not reload the core");
   root.unmount();
   return { saves: saves.length, reloads, checks: ["West-Europe-West custom order", "unsaved cross-group edits", "one save retains both groups", "no repeated save on region view change", "reopen retains orders", "regional presets and independent ceilings", "restore region default", "per-group disable", "invalid ceiling rejected", "English controls", "no learning controls", "no core restart"] };

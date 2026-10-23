@@ -114,4 +114,5 @@ test("the overview projects actual monitored groups instead of the editor's sele
   const summary = prioritySummaryState(state);
   assert.equal(summary.settings.group, "West / HK"); assert.deepEqual(summary.activeGroups, state.activeGroups);
   assert.equal(prioritySummaryState({ ...state, active: false, activeGroups: [], selected: null }).settings.group, "");
+  assert.equal(prioritySummaryState({ ...state, active: false, activeGroups: [], initializing: true }).initializing, true);
 });
