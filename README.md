@@ -1,63 +1,58 @@
 # May Route
 
-May Route is a personal Windows routing client derived from the upstream
-[`SagerNet/sing-box-for-desktop`](https://github.com/SagerNet/sing-box-for-desktop)
-project. It is independently named and is not an official SagerNet release.
+基于 sing-box 的 Windows 代理客户端，提供规则／全局／直连路由、系统代理／TUN 流量接管，以及按实际使用入口组运行的自动故障切换。面向日常代理与私人配置管理，支持简体中文和英文。
 
-The maintained personal changes add:
+[English](README.en.md) · [下载发行版](https://github.com/mxh110708/may-route-desktop/releases/latest) · [使用教程](docs/USER-GUIDE.zh-CN.md) · [排错](docs/TROUBLESHOOTING.zh-CN.md) · [文档目录](docs/README.md)
 
-- Rule, Global, and Direct routing controls on Overview.
-- System Proxy and TUN traffic-capture controls on Overview.
-- Adaptive System Proxy recovery that checks both the actual CONNECT path and
-  Windows proxy ownership, confirms failures, and avoids repeated takeovers.
-- A parallel Windows installation that does not take over the official
-  desktop client's service, registry key, IPC pipe, or data directories.
-- A public personal Release channel with exact asset-name, repository-path,
-  version, and signer checks.
+## 平台与项目
 
-See [CUSTOM.md](CUSTOM.md) for upstream synchronization, local signed builds,
-security boundaries, and release maintenance.
-The [1.14.2 audit](docs/AUDIT-1.14.2.zh-CN.md) classifies retained customizations,
-recovery boundaries, and remaining validation limits.
+当前维护与安装验收目标为 **Windows x64**，文档基线为 **1.14.2-may.26**。上游跨平台源码、Linux 脚本或核心支持其他系统，不代表 May 桌面已为这些平台完成同等适配和发行。
 
-## 深浅色外观
+May Route 是独立维护的 [sing-box-for-desktop](https://github.com/SagerNet/sing-box-for-desktop) 衍生发行，不是 SagerNet 官方安装包。本仓库负责桌面、安装器、更新、Windows 流量接管和故障切换；[Dashboard](https://github.com/mxh110708/may-route-dashboard) 为内嵌界面，[Core](https://github.com/mxh110708/may-route-core) 为配套核心。最终用户只需下载桌面发行包，不必分别安装三个仓库。
 
-界面参考 May VPS Deploy：深色采用蓝灰分层与浅蓝强调色，浅色采用蓝色侧栏与白色内容区。卡片、输入框、按钮、菜单和对话框使用统一的颜色角色，保留跟随系统、预设及自定义主题色。实现与验收范围见 [主题重构说明](docs/THEME-REFRESH.zh-CN.md)。
+## 主要能力
 
-## 本地配置与端口设置
+| 能力 | 使用与边界 |
+| --- | --- |
+| 路由模式 | Rule／Global／Direct 决定请求走向；具体分类来自当前配置和规则。 |
+| 流量接管 | System Proxy／TUN 决定哪些流量进入代理；不等同于路由模式。 |
+| 代理组与连接 | 查看和选择节点、手动测速、连接、日志与配置。解析通过不替代实际业务验收。 |
+| 故障切换 | 实际使用一个地区就检测一个入口，多个地区则分别监测；自定义顺序按组保存，手动首选可稳定恢复后切回。 |
+| 质量确认 | 不可达、持续高延迟及短窗反复异常分别确认；备用也复核，不自动回退 DIRECT。 |
+| 系统代理保持 | 检查实际代理归属与本地 CONNECT；必要时有限恢复，不反复覆盖健康的相同设置或争抢其他代理。 |
+| 托盘和语言 | 左键显示／恢复主界面，右键原生菜单、悬停子菜单；简中／英文，支持本地界面字体。 |
+| 更新 | 固定 May Release 来源，独立更新连接，版本／文件／签名校验，可在安装器接管前取消下载。 |
 
-- “从文件导入”记住上次选择的文件夹；文件夹不可用时使用系统默认位置。
-- “设置 → 端口设置”可调整当前配置的混合端口，按需启用独立 SOCKS、HTTP 端口，沿用既有设置界面样式。
-- 保存前校验端口范围、重复和占用；运行时明确提示“保存并重载”，失败尝试恢复原配置和服务。更改同步用于系统代理和本地健康检测，并保留故障切换首选入口。
-- 手动测速默认目标对齐 Clash Verge 的 Cloudflare HTTP 目标，仍测量预热后的完整链路请求耗时，不将延迟除以二。后台健康探测保持独立口径。
+## 开始使用
 
-详见 [端口设置说明](docs/PROXY-PORTS.zh-CN.md) 和 [延迟检测说明](docs/LATENCY-MEASUREMENT.zh-CN.md)。
+1. 从本仓库 Release 获取 Windows 安装器，对照同次发行的校验资料。源码压缩包不是安装包。
+2. 选择安装与数据位置，打开 May Route，导入自己信任的 sing-box 配置。应用不附带可用私人节点或通用服务密码。
+3. 先选配置及节点，启动服务，明确选择系统代理或 TUN，再选规则／全局／直连。确认当前由哪个软件接管流量。
+4. 用实际业务验证命中规则、连接链及出口；需要校园授权的数据库先核对 DIRECT 和校园网络条件。
+5. 启用故障切换后查看实际监测入口，按组审阅顺序和延迟上限。桌面保持运行，可留在托盘。
 
-“设置 → 应用 → 更新连接”可单独设置检查更新和安装包下载使用的代理，留空直连。支持无需认证的 HTTP、HTTPS、SOCKS5，不改变当前系统代理或 TUN。详见 [更新连接说明](docs/UPDATE-CONNECTION.zh-CN.md)。
+详细安装、日常操作、更新与卸载见[使用手册](docs/USER-GUIDE.zh-CN.md)。Deploy 生成和导出权威配置后，仍需由客户端明确加载；Route 不负责为 VPS 安装协议或为学校建立访问授权。
 
-## 图形化故障切换设置与日志保存
+## 故障切换如何工作
 
-- 根据业务连接实际经过的入口组监测：只使用一个地区就检测一个，同时使用多个地区则分别检测和切换；业务结束后保留一分钟宽限。内部健康探测不算业务，不按组名或服务商硬编码。
-- 设置页提供独立“自动故障切换”入口：各组分别保存自定义顺序，切换查看地区不会清空顺序或要求重复保存。保存后即时更新匹配的运行策略；旧运行配置缺少探测入口时才提示手动重载，重载前确认，外部配置变化时拒绝覆盖。
-- 每个节点独立进行三个 HTTPS 目标探测，不切换主入口来测速。当前节点连续三轮失败、备用连续两轮可用才切换；首选至少三轮成功且稳定两分钟后自动切回。
-- 单个网站失败不触发切换；全部不可用时不回落 DIRECT。手动选中受监测节点会把它设为首选，该节点故障仍自动切到健康备用，稳定恢复后切回。
-- 系统代理和 TUN 模式均支持；Direct 路由模式暂停自动决策。需保持桌面应用运行，最小化到托盘即可。
-- 核心日志 `core-runtime.log` 与探针日志 `system-proxy-health.log` 各保留当前文件及五份滚动备份，每份最多约 10 MiB。关开代理不会清除磁盘历史。
-- 日志可能含节点名称、目标域名或地址，请仅作为本机私有诊断资料。应用未运行期间的核心日志不能完整补录，切换也不保证已有连接无缝迁移。
+监测依据当前配置结构与真实连接链，包括显式 `detour`，不是依据设置页正在查看的地区或流量总数。无实际使用的地区闲置约一分钟后停止探测；内部探针不计作业务活动。
 
-详见 [探测、恢复与日志规则](docs/proxy-health.md)。
+探测使用三个 HTTPS 目标，至少两个成功才可达。响应阶段和包含拨号／TLS 的完整耗时分别保留，**不是 ICMP ping**。区域绝对上限、不变的确认余量和有限异常窗口用于过滤正常波动；未知或混合地区不猜测，可手工设定。所有候选一起慢时保持选择。
 
-配置位置、完整示例与参数说明见 [配置驱动故障切换](docs/PRIORITY-FAILOVER.zh-CN.md)。
+各组分别保存顺序和上限，下拉框只用于查看／编辑并记住上次选择。自动切换不改变其他地区；手动选中参与监测的节点会成为当前首选。参数、预设、探测预算、恢复条件和限制见[完整故障切换说明](docs/PRIORITY-FAILOVER.zh-CN.md)。
 
-## Security
+## 系统代理与资源
 
-This repository and its CI contain no proxy profiles, VPS archives, passwords,
-tokens, private keys, or code-signing material. Signed releases are produced
-locally. The public application update channel does not embed a GitHub token.
+系统代理保持只在受支持状态下处理自己的预期端点，区分本地代理健康、Windows 设置被关闭及代理归属变化。其他代理／PAC 出现时停止争抢并提示；Direct 和停止服务不进行同样的代理探测。相同且健康的设置不应重复写入，避免无意义的 WSL 代理变化通知。
 
-## Upstream and license
+后台优化暂停隐藏界面的可重放读取和绘制，按需加载资源；运行中的代理、日志归档、健康检查和故障切换继续工作。连接历史保留必要事件，未保存表单不因隐藏丢弃。资源取决于代理状态、配置、流量、页面和缓存；不承诺固定内存、低于其他客户端或所有场景都有相同收益。测量与撤回决定见[性能审查记录](docs/PERFORMANCE-AUDIT-2026-10-19.zh-CN.md)。
 
-The desktop, dashboard, and core source retain their upstream copyright and
-license notices. See [LICENSE](LICENSE). The application name May Route is used
-to comply with the upstream requirement that derivative works not use the
-original application's name or imply official association without consent.
+## 文档与维护
+
+- [使用手册](docs/USER-GUIDE.zh-CN.md) / [English](docs/USER-GUIDE.en.md)：安装、模式、配置、托盘、更新和数据。
+- [故障切换](docs/PRIORITY-FAILOVER.zh-CN.md)、[更新连接](docs/UPDATE-CONNECTION.zh-CN.md)、[端口](docs/PROXY-PORTS.zh-CN.md)：专项参数。
+- [排错](docs/TROUBLESHOOTING.zh-CN.md)：规则、校园数据库、代理保持、监测状态和资源问题。
+- [开发与配套](docs/DEVELOPMENT.zh-CN.md)、[实现与上游维护](CUSTOM.md)：源码和验证。
+- [历史索引](docs/HISTORY.md)：按版本保留的修复、实验与验收边界，不是当前操作顺序。
+
+反馈提供应用版本、模式、代理状态、入口组、准确时间与脱敏日志。配置、订阅地址、节点凭据、私钥、数据库与签名材料不得公开。许可证、上游版权和品牌限制见 [LICENSE](LICENSE)；账号 `mxh110708` 与协议／模块技术身份保持不变。

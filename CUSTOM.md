@@ -1,5 +1,8 @@
 # May Route
 
+> 文档定位：维护实现与历史实验细节。当前产品使用、平台和版本以[首页](README.md)与[教程](docs/USER-GUIDE.zh-CN.md)为准；历史资源数字和可选同步命令不代表当前保证或执行授权。
+
+
 This repository is a personal Windows distribution based on the official
 `SagerNet/sing-box-for-desktop` project. It keeps upstream behavior while
 adding two official-style overview controls:
@@ -152,9 +155,7 @@ The corresponding personal `origin` repositories are
 Run `scripts/sync-upstream.ps1` only from a clean working tree. It fetches the
 three upstream repositories, checks out the requested official desktop/core
 version, reapplies the custom branches with rebases, updates the dashboard
-submodule pointer, and stops on any conflict. Because rebasing rewrites the
-personal branches, publish only with `--force-with-lease`, and only after the
-tests and signed local package succeed.
+submodule pointer, and stops on any conflict. Rebasing changes local history. Preserve a recovery point and review the resulting commits. A normal fast-forward publication is preferred; rewriting a remote branch requires separate explicit authorization and a verified lease. Synchronization alone does not authorize publication or installation.
 
 When moving from a prerelease line to a stable tag whose history is not a
 direct descendant, pass the old core tag explicitly, for example:
