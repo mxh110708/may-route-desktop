@@ -1,6 +1,6 @@
 # May Route user guide
 
-Baseline: Windows x64, 1.14.2-may.26. See the [Chinese manual](USER-GUIDE.zh-CN.md) for detailed parameters and troubleshooting.
+Baseline: Windows x64, 1.14.2-may.27. See the [Chinese manual](USER-GUIDE.zh-CN.md) for detailed parameters and troubleshooting.
 
 ## Install and import
 

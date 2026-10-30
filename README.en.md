@@ -4,7 +4,7 @@ A Windows sing-box client with Rule/Global/Direct routing, System Proxy/TUN capt
 
 [简体中文](README.md) · [Releases](https://github.com/mxh110708/may-route-desktop/releases/latest) · [User guide](docs/USER-GUIDE.en.md) · [Documentation](docs/README.md)
 
-The maintained desktop/installer acceptance target is **Windows x64**; the documentation baseline is **1.14.2-may.26**. Upstream Linux scripts and cross-platform core code do not establish equivalent May desktop support on other platforms.
+The maintained desktop/installer acceptance target is **Windows x64**; the documentation baseline is **1.14.2-may.27**. Upstream Linux scripts and cross-platform core code do not establish equivalent May desktop support on other platforms.
 
 This is an independently maintained derivative of [sing-box-for-desktop](https://github.com/SagerNet/sing-box-for-desktop), not an official SagerNet package. This repository owns the desktop application, installer, update channel, Windows capture and failover. [Dashboard](https://github.com/mxh110708/may-route-dashboard) is embedded UI; [Core](https://github.com/mxh110708/may-route-core) is the paired service core. End users install the desktop release, not three separate repositories.
 

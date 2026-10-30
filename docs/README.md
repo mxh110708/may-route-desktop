@@ -1,6 +1,6 @@
 # May Route 文档
 
-基线：Windows x64，1.14.2-may.26。[English overview](../README.en.md) · [English guide](USER-GUIDE.en.md)。
+基线：Windows x64，1.14.2-may.27。[English overview](../README.en.md) · [English guide](USER-GUIDE.en.md)。
 
 ## 使用顺序
 
