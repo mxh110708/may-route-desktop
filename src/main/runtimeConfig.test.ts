@@ -33,6 +33,34 @@ function sample(overrides: Record<string, unknown> = {}): string {
   });
 }
 
+for (const capture of ["system-proxy", "tun"] as const) {
+  for (const transportMode of ["auto", "stream-one", "stream-up", "packet-up"] as const) {
+    for (const version of ["1.1", "2", "3"] as const) {
+      test(`${capture} preserves complete XHTTP ${transportMode}/${version} across reload preparation`, () => {
+        const entry = {
+          type: "vless", tag: "Advanced-XHTTP", server: "upload.example.test", server_port: 443,
+          uuid: "00000001-0002-0003-0004-000000000005", packet_encoding: "xudp",
+          tls: { enabled: true, server_name: "identity.example.test", alpn: [version === "3" ? "h3" : version === "1.1" ? "http/1.1" : "h2"] },
+          transport: {
+            type: "xhttp", path: "/literal%2Fpath/?keep=a%2Fb", host: "front.example.test:443", mode: transportMode, http_version: version,
+            extra: { xPaddingObfsMode: true, xPaddingPlacement: "cookie", xPaddingKey: "pad", xPaddingMethod: "tokenish", sessionPlacement: "header", sessionKey: "X-Session", scMaxEachPostBytes: "2048-4096", xmux: { hMaxRequestTimes: "10-20", maxConnections: 2, hKeepAlivePeriod: -1 } },
+            ...(transportMode !== "stream-one" ? { download_settings: {
+              server: "download.example.test", server_port: 8443,
+              tls: { enabled: true, server_name: "download-identity.example.test", alpn: ["h2"] },
+              transport: { type: "xhttp", path: "/down/?signed=keep%2Fvalue", host: "down.example.test", mode: "auto", http_version: "2", extra: { sessionPlacement: "cookie", sessionKey: "sid" } },
+            } } : {}),
+          },
+        };
+        const source = sample({ outbounds: [entry, { type: "selector", tag: "US-West-SJ Entry", outbounds: [entry.tag] }, { type: "selector", tag: "Final Exit", outbounds: ["US-West-SJ Entry"] }, { type: "direct", tag: "DIRECT" }] });
+        const runtime = buildRuntimeConfig(source, capture);
+        assert.deepEqual(JSON.parse(runtime).outbounds[0], entry);
+        assert.deepEqual(JSON.parse(buildRuntimeConfig(runtime, capture)).outbounds[0], entry);
+        assert.deepEqual(JSON.parse(source).outbounds[0], entry);
+      });
+    }
+  }
+}
+
 test("system proxy mode keeps official control rules first and disables TUN routing", () => {
   const config = JSON.parse(buildRuntimeConfig(sample(), "system-proxy"));
   assert.deepEqual(
@@ -135,3 +163,29 @@ test("capture mode parsing rejects unknown values", () => {
   assert.equal(parseCaptureMode("tun"), "tun");
   assert.throws(() => parseCaptureMode("automatic"), /invalid capture mode/);
 });
+
+for (const mode of ["system-proxy", "tun"] as const) {
+  for (const security of ["tls", "reality"] as const) {
+    test(`${mode} preserves native XHTTP ${security} and its region selection`, () => {
+      const entry = {
+        type: "vless", tag: "Synthetic-XHTTP", server: "entry.example.test", server_port: 443,
+        uuid: "00000001-0002-0003-0004-000000000005", packet_encoding: "xudp",
+        transport: { type: "xhttp", path: "/may-stream/", host: "front.example.test", mode: "stream-one" },
+        tls: {
+          enabled: true, server_name: "identity.example.test", alpn: ["h2"], min_version: "1.3",
+          ...(security === "reality" ? { utls: { enabled: true, fingerprint: "chrome" }, reality: { enabled: true, public_key: "A".repeat(43), short_id: "abcd1234" } } : {}),
+        },
+      };
+      const source = sample({ outbounds: [
+        entry, { type: "selector", tag: "US-West-SJ Entry", outbounds: [entry.tag] },
+        { type: "selector", tag: "Final Exit", outbounds: ["US-West-SJ Entry"] },
+        { type: "direct", tag: "DIRECT" },
+      ] });
+      const runtime = JSON.parse(buildRuntimeConfig(source, mode));
+      assert.deepEqual(runtime.outbounds[0], entry);
+      assert.deepEqual(runtime.outbounds[1].outbounds, [entry.tag]);
+      assert.equal(runtime.route.final, "Final Exit");
+      assert.deepEqual(JSON.parse(source).outbounds[0], entry);
+    });
+  }
+}

@@ -51,6 +51,8 @@ pnpm build
 
 ## 上游维护
 
+第二十轮未发行 Core 源码已扩展 VLESS TLS／Reality XHTTP：四种模式、合法 HTTP/1.1／2／3、独立下载身份、元数据／填充与 XMux。桌面运行配置准备层保留完整出站；`tests/xhttp-runtime.ts` 与 Core `tests/xhttp-lifecycle.py` 联合验证真实 StartedService 的加载、按需探测、确认故障后切换和重载取消。参数、连接池策略及资源边界见同级 Core 的 `docs/MAY-XHTTP.zh-CN.md`。使用匹配核心构建，不从当前已安装版本推断支持；未新增第二常驻核心、修改 Dashboard gitlink 或切换本机系统代理／TUN。
+
 按需选择官方提交审查和适配。`scripts/sync-upstream.ps1` 会 fetch、rebase 并更新子模块指针，必须在干净且有恢复点的工作树中明确执行，遇冲突停止。它不是文档检查命令，也不意味着已授权改写远端历史。
 
 同步后重新核对功能差异、许可、版本、三个仓库的来源和实际支持平台。不能把上游增加的 Linux／核心协议支持直接写成 May Windows 产品已完成部署闭环。
