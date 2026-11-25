@@ -208,7 +208,8 @@ The custom release revision comes from `custom-version.json`, while the
 official base version remains in `version.json`. A prerelease such as
 `1.14.0-beta.14` becomes `1.14.0-beta.14.may.1`; this preserves correct SemVer
 ordering when the next official prerelease appears. Increment the custom
-revision when the base version does not change.
+revision when the base version does not change. Reset it to 1 when the upstream
+base version changes; for example, 1.14.2-may.27 moves to 1.14.4-may.1.
 
 This project remains under the upstream license in `LICENSE` and is not an
 official SagerNet distribution.

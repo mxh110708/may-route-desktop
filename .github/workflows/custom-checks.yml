@@ -27,19 +27,26 @@ jobs:
       - name: Initialize core source
         shell: pwsh
         run: |
-          $coreRevision = (Get-Content version.json -Raw | ConvertFrom-Json).version
-          git clone --depth 1 --branch "v$coreRevision" https://github.com/SagerNet/sing-box.git ../sing-box
+          $coreSource = Get-Content core-source.json -Raw | ConvertFrom-Json
+          if ($coreSource.repository -ne 'mxh110708/may-route-core' -or $coreSource.commit -notmatch '^[0-9a-f]{40}$') {
+            throw 'Invalid paired May Core source.'
+          }
+          git clone --depth 1 --branch $coreSource.tag "https://github.com/$($coreSource.repository).git" ../sing-box
+          if ($LASTEXITCODE -ne 0) { throw 'Could not clone the paired May Core tag.' }
+          $actual = git -C ../sing-box rev-parse HEAD
+          if ($LASTEXITCODE -ne 0 -or $actual -ne $coreSource.commit) { throw 'Paired May Core commit mismatch.' }
       - uses: pnpm/action-setup@v4
         with:
           version: 11.19.0
       - uses: actions/setup-node@v4
         with:
-          node-version: 26.5.0
+          node-version-file: package.json
           cache: pnpm
       - run: pnpm install --frozen-lockfile
       - run: pnpm -C dashboard install --frozen-lockfile
       - run: pnpm -C dashboard generate
       - run: pnpm generate
+      - run: pnpm test:custom-isolation
       - run: pnpm test:update-source
       - run: pnpm test:runtime-config
       - run: pnpm test:rpc-limits
@@ -61,6 +68,3 @@ jobs:
       - run: pnpm -C dashboard test -- --run
       - run: pnpm -C dashboard lint
       - run: pnpm -C dashboard lint:css
-
-      # The isolation test also reads the sibling custom core checkout, so it
-      # runs locally before every signed package instead of in this test-only CI.

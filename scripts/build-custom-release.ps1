@@ -15,6 +15,36 @@ param(
 $ErrorActionPreference = "Stop"
 $repositoryRoot = Split-Path -Parent $PSScriptRoot
 
+function Read-ReleaseGit {
+    param([string]$Directory, [string[]]$Arguments)
+    $value = & git -c "safe.directory=$($Directory.Replace('\', '/'))" -C $Directory @Arguments
+    if ($LASTEXITCODE -ne 0) { throw "Could not inspect release source: $Directory" }
+    return $value
+}
+
+$coreRoot = [IO.Path]::GetFullPath((Join-Path $repositoryRoot '..\sing-box'))
+$coreSource = Get-Content -LiteralPath (Join-Path $repositoryRoot 'core-source.json') -Raw | ConvertFrom-Json
+if ($coreSource.repository -ne 'mxh110708/may-route-core' -or
+    $coreSource.commit -notmatch '^[0-9a-f]{40}$' -or
+    $coreSource.tag -notmatch '^v[0-9][0-9A-Za-z.-]+$') {
+    throw 'The paired May Core source manifest is invalid.'
+}
+$actualCore = Read-ReleaseGit $coreRoot @('rev-parse', 'HEAD')
+$taggedCore = Read-ReleaseGit $coreRoot @('rev-parse', '--verify', "$($coreSource.tag)^{commit}")
+if ($actualCore -ne $coreSource.commit -or $taggedCore -ne $coreSource.commit) {
+    throw 'The checked-out May Core does not match core-source.json.'
+}
+foreach ($sourceRoot in @($repositoryRoot, (Join-Path $repositoryRoot 'dashboard'), $coreRoot)) {
+    if (Read-ReleaseGit $sourceRoot @('status', '--porcelain')) {
+        throw "Release source must be clean: $sourceRoot"
+    }
+}
+$dashboardTree = Read-ReleaseGit $repositoryRoot @('ls-tree', 'HEAD', 'dashboard')
+$dashboardSource = ($dashboardTree -split '\s+')[2]
+if ((Read-ReleaseGit (Join-Path $repositoryRoot 'dashboard') @('rev-parse', 'HEAD')) -ne $dashboardSource) {
+    throw 'Dashboard checkout does not match the recorded gitlink.'
+}
+
 if (-not (Test-Path -LiteralPath $CertificateFile -PathType Leaf)) {
     throw "The local code-signing certificate is missing."
 }

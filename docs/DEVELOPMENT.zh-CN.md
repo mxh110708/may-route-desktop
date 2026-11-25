@@ -9,8 +9,9 @@
 | 桌面 | 当前仓库 custom-main，安装器、Electron、Windows 代理与故障切换。 |
 | Dashboard | `dashboard/` 子模块，固定 gitlink；不能用分支最新值替换已记录提交。 |
 | Core | 同级 `../sing-box` 的 May 核心源码；构建脚本核对选定版本。 |
-| 上游版本 | `version.json`，当前 1.14.2，Go 固定 `go1.26.8`。 |
-| May 修订 | `custom-version.json`，当前 26，组合成 1.14.2-may.26。 |
+| Core 来源锁 | `core-source.json` 固定 May Core 仓库、标签和提交；正式构建与 CI 同时核对，不能只按官方基础版本取 Core。 |
+| 上游版本 | `version.json`，当前源码 1.14.4，Go 固定 `go1.26.10`。 |
+| May 修订 | `custom-version.json`，当前修订 1，组合成 1.14.4-may.1。同一上游基础版本内递增，切换基础版本时从 1 开始。 |
 | JS 工具 | `package.json` 固定 Node 26.7.0、pnpm 11.19.0，使用仓库锁文件。 |
 
 不要把 May Monitor 的 Go 1.27.3 工具链要求套到 Route。上游模块路径、协议名和图标来源保持技术与许可证身份，不随品牌字符串批量替换。
@@ -51,7 +52,9 @@ pnpm build
 
 ## 上游维护
 
-第二十轮未发行 Core 源码已扩展 VLESS TLS／Reality XHTTP：四种模式、合法 HTTP/1.1／2／3、独立下载身份、元数据／填充与 XMux。桌面运行配置准备层保留完整出站；`tests/xhttp-runtime.ts` 与 Core `tests/xhttp-lifecycle.py` 联合验证真实 StartedService 的加载、按需探测、确认故障后切换和重载取消。参数、连接池策略及资源边界见同级 Core 的 `docs/MAY-XHTTP.zh-CN.md`。使用匹配核心构建，不从当前已安装版本推断支持；未新增第二常驻核心、修改 Dashboard gitlink 或切换本机系统代理／TUN。
+1.14.2-may.27 已发行的 Core 扩展包括 VLESS TLS／Reality XHTTP：四种模式、合法 HTTP/1.1／2／3、独立下载身份、元数据／填充与 XMux。桌面运行配置准备层保留完整出站；`tests/xhttp-runtime.ts` 与 Core `tests/xhttp-lifecycle.py` 联合验证真实 StartedService 的加载、按需探测、确认故障后切换和重载取消。参数、连接池策略及资源边界见同级 Core 的 `docs/MAY-XHTTP.zh-CN.md`。使用匹配核心构建，不从当前已安装版本推断支持。
+
+2026-11-25 的 [1.14.4 稳定版同步](UPSTREAM-SING-BOX-1.14.4-2026-11-25.zh-CN.md)将 Core 合并至官方固定标签，保留 May 扩展和 Dashboard gitlink，使用普通合并保存来源历史。正式构建核对 Core 来源锁、Dashboard gitlink 和三个干净工作树，再执行签名与打包。源码推送、发行和本机安装分别核对。
 
 按需选择官方提交审查和适配。`scripts/sync-upstream.ps1` 会 fetch、rebase 并更新子模块指针，必须在干净且有恢复点的工作树中明确执行，遇冲突停止。它不是文档检查命令，也不意味着已授权改写远端历史。
 

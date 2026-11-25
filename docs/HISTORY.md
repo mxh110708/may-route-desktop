@@ -6,6 +6,8 @@
 
 | 记录 | 原文件 |
 | --- | --- |
+| [sing-box 1.14.4 稳定版同步](UPSTREAM-SING-BOX-1.14.4-2026-11-25.zh-CN.md) | `UPSTREAM-SING-BOX-1.14.4-2026-11-25.zh-CN.md` |
+| [May Route 1.14.4-may.1](RELEASE-1.14.4-may.1.zh-CN.md) | `RELEASE-1.14.4-may.1.zh-CN.md` |
 | [May Route 1.14.2 定制审计与收敛（2026-09-26）](AUDIT-1.14.2.zh-CN.md) | `AUDIT-1.14.2.zh-CN.md` |
 | [后台性能优化与验收（2026-10-18）](BACKGROUND-PERFORMANCE-2026-10-18.zh-CN.md) | `BACKGROUND-PERFORMANCE-2026-10-18.zh-CN.md` |
 | [May 全新安装迁移（2026-10-20）](BRAND-MIGRATION-2026-10-20.zh-CN.md) | `BRAND-MIGRATION-2026-10-20.zh-CN.md` |

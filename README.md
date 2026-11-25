@@ -6,7 +6,7 @@
 
 ## 平台与项目
 
-当前维护与安装验收目标为 **Windows x64**，文档基线为 **1.14.2-may.27**。上游跨平台源码、Linux 脚本或核心支持其他系统，不代表 May 桌面已为这些平台完成同等适配和发行。
+当前维护与安装验收目标为 **Windows x64**，文档基线为 **1.14.4-may.1**。上游跨平台源码、Linux 脚本或核心支持其他系统，不代表 May 桌面已为这些平台完成同等适配和发行。
 
 May Route 是独立维护的 [sing-box-for-desktop](https://github.com/SagerNet/sing-box-for-desktop) 衍生发行，不是 SagerNet 官方安装包。本仓库负责桌面、安装器、更新、Windows 流量接管和故障切换；[Dashboard](https://github.com/mxh110708/may-route-dashboard) 为内嵌界面，[Core](https://github.com/mxh110708/may-route-core) 为配套核心。最终用户只需下载桌面发行包，不必分别安装三个仓库。
 
@@ -57,4 +57,4 @@ May Route 是独立维护的 [sing-box-for-desktop](https://github.com/SagerNet/
 
 反馈提供应用版本、模式、代理状态、入口组、准确时间与脱敏日志。配置、订阅地址、节点凭据、私钥、数据库与签名材料不得公开。许可证、上游版权和品牌限制见 [LICENSE](LICENSE)；账号 `mxh110708` 与协议／模块技术身份保持不变。
 
-本版 XHTTP 客户端范围及配套核心见[1.14.2-may.27 发行说明](docs/RELEASE-1.14.2-may.27.zh-CN.md)。
+本版上游稳定更新及配套核心见[1.14.4-may.1 发行说明](docs/RELEASE-1.14.4-may.1.zh-CN.md)；来源、兼容适配与验证见[稳定版同步记录](docs/UPSTREAM-SING-BOX-1.14.4-2026-11-25.zh-CN.md)。XHTTP 初版记录保留在[1.14.2-may.27](docs/RELEASE-1.14.2-may.27.zh-CN.md)。
