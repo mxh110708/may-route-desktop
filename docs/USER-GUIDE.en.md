@@ -1,12 +1,14 @@
 # May Route user guide
 
-Baseline: Windows x64, 1.14.4-may.2. See the [Chinese manual](USER-GUIDE.zh-CN.md) for detailed parameters and troubleshooting.
+Baseline: Windows x64, 1.14.4-may.3. See the [Chinese manual](USER-GUIDE.zh-CN.md) for detailed parameters and troubleshooting.
 
 ## Install and import
 
 Download the Windows installer from the owned Release channel and verify the corresponding checksum information. Updates validate version, installer identity and signer. Existing installations retain their recorded location; data and application binaries have distinct ownership.
 
 Import a trusted sing-box profile, select it, choose the required nodes and start the service. The application does not provide private nodes or a universal service password. Deploy export, Route import and loading the active runtime are separate steps.
+
+Node cards share one width baseline: wider windows add columns and narrower windows remove columns, without a column-count cap. Name length does not change the column count at the same available width. Full names wrap, cards in each row share a height, and protocol and latency stay aligned at the bottom. Check the full IPv4/IPv6 suffix when choosing an exit; those exits may have different destination compatibility.
 
 The data directory contains profiles, settings, fonts and bounded logs, potentially with private credentials. Use the application's open-data-directory action rather than guessing its location after a custom install. Uninstall can retain or remove data; retaining is the default. Do not override an unknown non-empty directory to bypass ownership checks.
 

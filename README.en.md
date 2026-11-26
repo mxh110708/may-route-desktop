@@ -4,7 +4,7 @@ A Windows sing-box client with Rule/Global/Direct routing, System Proxy/TUN capt
 
 [简体中文](README.md) · [Releases](https://github.com/mxh110708/may-route-desktop/releases/latest) · [User guide](docs/USER-GUIDE.en.md) · [Documentation](docs/README.md)
 
-The maintained desktop/installer acceptance target is **Windows x64**; the documentation baseline is **1.14.4-may.2**. Upstream Linux scripts and cross-platform core code do not establish equivalent May desktop support on other platforms.
+The maintained desktop/installer acceptance target is **Windows x64**; the documentation baseline is **1.14.4-may.3**. Upstream Linux scripts and cross-platform core code do not establish equivalent May desktop support on other platforms.
 
 The current source integrates sing-box **1.14.4** as **1.14.4-may.1**. May revisions restart at 1 for each new upstream base. See the [release notes](docs/RELEASE-1.14.4-may.1.zh-CN.md) and [upstream synchronization record](docs/UPSTREAM-SING-BOX-1.14.4-2026-11-25.zh-CN.md) for provenance, compatibility changes and validation.
 
@@ -36,7 +36,7 @@ Manual selection of a participating node makes it the current preferred node; au
 
 System-proxy health and Windows settings are evaluated separately. While system-proxy capture is on, confirmed endpoint/PAC/auto-detection changes are repaired, with at least ten seconds between retries. Turn Route off before using another proxy client. Unknown readings do not authorize writes. Hidden UI work can pause while proxy service, diagnostics and monitoring continue. Memory depends on state, profile, traffic and active views; historical measurements are not a fixed RAM promise.
 
-Desktop [1.14.4-may.2](docs/RELEASE-1.14.4-may.2.zh-CN.md) fixes editor restoration and proxy keeping; the paired core remains pinned to 1.14.4-may.1. New profiles rebuild candidate groups and probe routes from their own content. A recovered editor group name never imports old node or runtime state.
+Desktop [1.14.4-may.3](docs/RELEASE-1.14.4-may.3.zh-CN.md) displays full node names using a shared card-width baseline. Wider windows add columns and narrower windows remove columns, without a column-count cap. Cards in the same row share a height, with protocol and latency aligned at the bottom. The paired core remains pinned to 1.14.4-may.1; editor restoration and proxy keeping from may.2 remain included.
 
 See the [user guide](docs/USER-GUIDE.en.md), [troubleshooting](docs/TROUBLESHOOTING.zh-CN.md), [update connection](docs/UPDATE-CONNECTION.zh-CN.md), [development](docs/DEVELOPMENT.zh-CN.md), [implementation notes](CUSTOM.md) and [history](docs/HISTORY.md).
 
