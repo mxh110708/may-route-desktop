@@ -235,22 +235,30 @@ test("Windows ownership treats a disabled matching endpoint separately from a he
   assert.equal(classifyWindowsProxyOwnership({ supported: true, readable: false }), "unknown");
 });
 
-test("ownership repair confirms twice and never fights another proxy repeatedly", () => {
+test("only active WinINet PAC/detection flags trigger repair, not a retained inactive PAC URL", () => {
+  const registry = "ProxyEnable REG_DWORD 0x1\nProxyServer REG_SZ http://127.0.0.1:2080\nAutoConfigURL REG_SZ https://private.invalid/pac\nAutoDetect REG_DWORD 0x1";
+  const endpoint = { server: "127.0.0.1", port: 2080 };
+  assert.equal(classifyWindowsProxyOwnership({ supported: true, readable: true, ...summarizeWindowsProxy(registry, endpoint, 3) }), "owned");
+  for (const flags of [7, 11]) assert.equal(classifyWindowsProxyOwnership({ supported: true, readable: true, ...summarizeWindowsProxy(registry, endpoint, flags) }), "foreign");
+  const direct = summarizeWindowsProxy(registry, endpoint, 1);
+  assert.equal(direct.enabled, false); assert.equal(direct.pacConfigured, false); assert.equal(direct.autoDetect, false);
+  assert.equal(classifyWindowsProxyOwnership({ supported: true, readable: true, ...direct }), "detached");
+});
+
+test("active proxy guard confirms changed endpoints and keeps retrying at a bounded rate", () => {
   const gate = new WindowsProxyRecoveryGate();
-  assert.equal(gate.observe("detached"), "retry");
-  assert.equal(gate.observe("unknown"), "unknown");
-  assert.equal(gate.observe("detached"), "retry");
-  assert.equal(gate.observe("detached"), "repair");
-  gate.cancelPendingRepair();
-  assert.equal(gate.observe("detached"), "retry");
-  assert.equal(gate.observe("detached"), "repair");
-  assert.equal(gate.observe("owned"), "healthy");
-  assert.equal(gate.observe("detached"), "retry");
-  assert.equal(gate.observe("detached"), "suspended");
-  assert.equal(gate.observe("foreign"), "foreign");
+  assert.equal(gate.observe("detached", 0), "retry");
+  assert.equal(gate.observe("unknown", 1000), "unknown");
+  assert.equal(gate.observe("foreign", 2000), "retry");
+  assert.equal(gate.observe("foreign", 3000), "repair");
+  assert.equal(gate.observe("owned", 4000), "healthy");
+  assert.equal(gate.observe("detached", 5000), "retry");
+  assert.equal(gate.observe("foreign", 6000), "retrying");
+  for (const at of [8000, 10000, 12000]) assert.equal(gate.observe("foreign", at), "retrying");
+  assert.equal(gate.observe("foreign", 13000), "repair");
   gate.reset();
-  assert.equal(gate.observe("detached"), "retry");
-  assert.equal(gate.observe("detached"), "repair");
+  assert.equal(gate.observe("foreign", 14000), "retry");
+  assert.equal(gate.observe("foreign", 15000), "repair");
 });
 
 test("health log rotates and preserves complete concurrent records", async () => {

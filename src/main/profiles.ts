@@ -29,6 +29,7 @@ import type {
 import { writeApplicationCacheFile } from "./appCache";
 import { desktopService, managedService, startedService } from "./daemon";
 import { Preference, settingsDatabase } from "./database";
+import { restorePriorityEditorPreference } from "./preferences";
 import { assertProxyPortsAvailable, carryProxyPortPriorityPreference, commitProxyPortChange, prepareProxyPortConfig, readProxyPorts } from "./proxyPorts";
 import type { ProxyPortPanelState, ProxyPortSettings } from "../shared/proxyPorts";
 import {
@@ -46,7 +47,7 @@ import { daemonState } from "./state";
 import { HealthLog } from "./healthLog";
 import { CoreLogArchive } from "./coreLogArchive";
 import { dismissSystemProxyRecoveryWarning, showSystemProxyRecoveryWarning } from "./notifications";
-import { WindowsProxyMonitor, type WindowsProxyContext, type WindowsProxyHealth, type ProxyRecoveryCheckpoint } from "./windowsProxyMonitor";
+import { WindowsProxyMonitor, type WindowsProxyContext, type WindowsProxyHealth } from "./windowsProxyMonitor";
 import { setTimeout as priorityRetryDelay } from "node:timers/promises";
 import { PriorityActivity } from "./priorityActivity";
 import { PriorityMonitors, regionalRecoveryEvidence, type PriorityPreference } from "./priorityMonitors";
@@ -502,6 +503,7 @@ async function priorityPanelState(): Promise<PriorityPanelState> {
   const rawContent = profileId ? await readFile(contentPath(profileId), "utf8") : null;
   const projection = priorityProfileCache.read(profileId, rawContent, captureModePreference.get(), snapshot);
   const { groups, settings, revision } = projection;
+  restorePriorityEditorPreference(profileId, groups);
   if (daemonState.status === ServiceStatus_Type.STARTED && !priorityReady && !priorityConfiguring) await restorePriorityRuntime();
   const running = daemonState.status === ServiceStatus_Type.STARTED;
   const sameRuntime = priorityReady && profileId === priorityProfileId && projection.hash === priorityProfileHash && captureModePreference.get() === priorityCaptureMode;
@@ -668,19 +670,13 @@ const systemProxyRecovery = new ConsecutiveFailureRecovery(
 let windowsProxyHealth: WindowsProxyHealth = process.platform === "win32" ? "inactive" : "unsupported";
 let localProxyIntent = 0;
 let localProxyPaused = false;
-const localProxyCheckpoint = new Preference<ProxyRecoveryCheckpoint>("windows_proxy_recovery_checkpoint", "available", value => {
-  if (value === "available" || value === "repairing" || value === "used" || value === "foreign" || value === "unknown") return value;
-  throw new Error("invalid Windows proxy recovery checkpoint");
-});
 const windowsProxyMonitor = new WindowsProxyMonitor({
   context: localProxyContext,
   enqueue: runServiceOperation,
   changed: state => { windowsProxyHealth = state; notifyChanged(); },
-  warning: state => showSystemProxyRecoveryWarning(state === "foreign"),
+  warning: () => showSystemProxyRecoveryWarning(),
   dismissWarning: dismissSystemProxyRecoveryWarning,
   log: recordSystemProxyHealth,
-  loadCheckpoint: () => localProxyCheckpoint.get(),
-  saveCheckpoint: state => { if (localProxyCheckpoint.get() !== state) localProxyCheckpoint.set(state); },
 });
 const recoveryCoordinator = new RecoveryCoordinator();
 let systemProxyHealthTimer: NodeJS.Timeout | null = null;
@@ -871,7 +867,7 @@ async function runSystemProxyHealthCheck(): Promise<number> {
       recordSystemProxyHealth("recovery-deferred", { reason: "recovery-observation-or-stale-sample" });
       return SYSTEM_PROXY_HEALTH_RETRY_INTERVAL_MILLISECONDS;
     }
-    // The independent local monitor owns reassertion. Unknown/foreign/detached
+    // The independent local monitor owns reassertion. Unknown/mismatching
     // settings are never evidence that a full service reload would help.
     if (process.platform === "win32" && (classifyWindowsProxyOwnership(windowsProxy) !== "owned" || windowsProxyHealth === "unknown")) {
       systemProxyRecovery.reset();
@@ -1038,6 +1034,7 @@ export async function stopSelectedService(): Promise<void> {
   // Invalidate queued repairs immediately, before the stop waits on the queue.
   localProxyIntent++;
   localProxyPaused = true;
+  windowsProxyMonitor.stop();
   await runServiceOperation(async () => {
     if (!managedService) throw new Error("daemon is not available");
     await managedService.stopService({}, { timeoutMs: 30_000 });
@@ -1389,13 +1386,11 @@ const handlers: Record<
   },
 
   async reapplySystemProxy(): Promise<void> {
-    // Explicit action still does not overwrite foreign/PAC settings. Reuse the
-    // same confirmed, serial repair path; this explicit action grants a new attempt.
-    if (windowsProxyHealth !== "suspended") throw new Error("当前不处于暂停状态；恢复结果不明时请检查后重新启动代理。");
     const context = await localProxyContext();
     if (!context || !context.current()) throw new Error("请先启动系统代理模式。");
     const ownership = await context.read();
-    if (!context.current() || ownership !== "detached") throw new Error("仅能恢复仍指向 May Route 的已关闭代理；请先检查其他代理软件。");
+    if (!context.current() || ownership === "unknown") throw new Error("无法确认当前系统代理设置，请稍后重试。");
+    if (ownership === "owned") return;
     windowsProxyMonitor.newSession();
     await windowsProxyMonitor.poll();
   },

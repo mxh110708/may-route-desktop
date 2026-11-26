@@ -1,6 +1,6 @@
 # May Route user guide
 
-Baseline: Windows x64, 1.14.4-may.1. See the [Chinese manual](USER-GUIDE.zh-CN.md) for detailed parameters and troubleshooting.
+Baseline: Windows x64, 1.14.4-may.2. See the [Chinese manual](USER-GUIDE.zh-CN.md) for detailed parameters and troubleshooting.
 
 ## Install and import
 
@@ -36,7 +36,7 @@ A participating manually selected node becomes preferred. Default unreachable co
 
 ## Proxy ownership, tray and updates
 
-The guard separates local CONNECT health from Windows proxy ownership. It can confirm and repair its disabled expected endpoint, but yields to foreign endpoints/PAC. Healthy identical settings are not repeatedly written. Direct and stopped states are not probed in the same way.
+The guard separates local CONNECT health from Windows proxy settings. With Route's system-proxy capture on, it confirms and repairs disabled or changed endpoints and active PAC/auto-detection, retrying no more than once per ten seconds. Healthy identical settings are not rewritten. Turn the master switch off before using another proxy client; this immediately cancels queued recovery. TUN does not run this guard; Direct routing skips the separate Internet quality probes.
 
 Left-click the Windows tray icon to show/restore the main window. Right-click opens a native menu; submenus expand on hover. Hidden windows do not stop a running proxy. Simplified Chinese and English are supported. Imported TTF/OTF fonts remain local to the application; native menus use the Windows font.
 

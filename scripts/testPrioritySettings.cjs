@@ -6,7 +6,8 @@ const { tmpdir } = require("node:os");
 const { join, resolve } = require("node:path");
 const { createRequire } = require("node:module");
 const { build } = createRequire(require.resolve("vite"))("esbuild");
-const directory = mkdtempSync(join(tmpdir(), "route-priority-editor-"));
+const directory = process.env.MAY_PRIORITY_UI_DIRECTORY || mkdtempSync(join(tmpdir(), "route-priority-editor-"));
+const restoring = process.env.MAY_PRIORITY_UI_PHASE === "restore";
 app.setPath("userData", join(directory, "user-data"));
 app.disableHardwareAcceleration();
 // Never use console output in Electron fixtures: a closed parent pipe must not
@@ -17,15 +18,17 @@ app.whenReady().then(async () => {
   const dashboard = resolve(__dirname, "../dashboard");
   const preferencesPath = join(directory, "preferences.cjs");
   await build({
-    entryPoints: [resolve(__dirname, "../src/main/preferences.ts")],
+    stdin: { contents: 'export * from "./src/main/preferences"; export { settingsDatabase, preferenceSnapshot, removePreference } from "./src/main/database";', resolveDir: resolve(__dirname, ".."), loader: "ts" },
     bundle: true, platform: "node", format: "cjs", packages: "external", outfile: preferencesPath,
     alias: { "@dashboard": join(dashboard, "src") }, logLevel: "silent",
   });
-  require(preferencesPath).registerPreferences();
+  const preferences = require(preferencesPath);
+  preferences.registerPreferences();
   const preloadPath = join(directory, "preload.cjs");
   writeFileSync(preloadPath, `
     const { contextBridge, ipcRenderer } = require("electron");
     contextBridge.exposeInMainWorld("fixturePreferences", {
+      restoring: ${JSON.stringify(restoring)},
       initial: ipcRenderer.sendSync("preferences:snapshot"),
       set: (name, value) => ipcRenderer.invoke("preferences:call", "set", name, value),
       onChanged: listener => ipcRenderer.on("preferences:changed", (_event, name, value) => listener(name, value)),
@@ -39,11 +42,26 @@ app.whenReady().then(async () => {
   writeFileSync(join(directory, "index.html"), '<!doctype html><meta charset="utf-8"><div id="root"></div><script src="renderer.js"></script>');
   window = new BrowserWindow({ show: false, webPreferences: { preload: preloadPath, backgroundThrottling: false, contextIsolation: true, nodeIntegration: false } });
   await window.loadFile(join(directory, "index.html"));
-  const result = await window.webContents.executeJavaScript("window.runPriorityFixture()");
+  const result = await window.webContents.executeJavaScript(restoring ? "window.verifyPriorityRestart()" : "window.runPriorityFixture()");
   await window.loadFile(join(directory, "index.html"));
   const restored = await window.webContents.executeJavaScript('window.fixturePreferences.initial["priority-editor-groups"]');
   if (restored?.fixture !== "West" || restored?.other !== "Europe") throw new Error("editor selections did not survive a fresh renderer and desktop preference snapshot");
   result.checks.push("fresh renderer restores choices from desktop SQLite preferences");
+  if (restoring) {
+    const key = "priority-editor-groups", store = preferences.settingsDatabase();
+    const remembered = preferences.preferenceSnapshot([key])[key];
+    const insert = store.prepare("INSERT INTO profiles (id,name,type,auto_update,auto_update_interval_minutes,item_order) VALUES (?,?, 'local',0,0,0)");
+    insert.run("replacement", "replacement");
+    preferences.saveRendererPreference(key, { removed1: "West", removed2: "West", removed3: "West" });
+    preferences.restorePriorityEditorPreference("replacement", [{ tag: "West" }, { tag: "Europe" }]);
+    if (preferences.preferenceSnapshot([key])[key].replacement !== "West") throw new Error("sole replacement did not recover orphaned West choice");
+    preferences.saveRendererPreference(key, { removed1: "West", removed2: "Europe" });
+    preferences.restorePriorityEditorPreference("replacement", [{ tag: "West" }, { tag: "Europe" }]);
+    if (Object.hasOwn(preferences.preferenceSnapshot([key])[key], "replacement")) throw new Error("ambiguous orphaned choices were guessed");
+    store.prepare("DELETE FROM profiles").run();
+    preferences.saveRendererPreference(key, remembered);
+    result.checks.push("real SQLite sole-profile replacement recovers agreed orphaned choice", "ambiguous history is not guessed");
+  }
   writeFileSync(resultPath, JSON.stringify({ passed: true, ...result }, null, 2));
   window.destroy(); app.exit(0);
 }).catch(error => {
@@ -86,6 +104,7 @@ let state = { settings, revision: "1", profileId: "fixture", path: "fixture.json
   selected: "w1", preferred: "w1", lastSwitch: null,
   activeGroups: [{ group: "West", selected: "w1", preferred: "w1", monitoredSelected: true }],
   groups: [{ tag: "West", nodes: ["w1", "w2"] }, { tag: "Europe", nodes: ["e1", "e2"] }] };
+if (window.fixturePreferences.restoring) state.settings = { ...settings, group: "Europe", order: [], groupOrders: { West: ["w2", "w1"] } };
 let saves = [], reloads = 0, listeners = new Set();
 const host = { profiles: { priorityState: async () => structuredClone(state),
   prioritySave: async (next, revision) => {
@@ -119,6 +138,33 @@ async function editLimit(value) {
   Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value").set.call(input, value);
   input.dispatchEvent(new Event("input", { bubbles: true })); await delay();
 }
+window.verifyPriorityRestart = async () => {
+  await wait(() => order() === "w2,w1", "fresh application restores West instead of saved Europe");
+  check(state.settings.group === "Europe", "policy remains Europe after restart");
+  for (const running of [false, true, false, true]) {
+    state = { ...state, running, active: running, activeGroups: running ? [{ group: "West", selected: "w1", preferred: "w1", monitoredSelected: true }] : [] };
+    for (const listener of listeners) listener(); await delay();
+    check(order() === "w2,w1", "master switch transition retains West");
+  }
+  const groups = state.groups;
+  state = { ...state, groups: [] }; for (const listener of listeners) listener();
+  await wait(() => order() === "", "temporary empty group snapshot");
+  state = { ...state, groups }; for (const listener of listeners) listener();
+  await wait(() => order() === "w2,w1", "West restored after empty snapshot");
+  root.unmount(); root = createRoot(document.getElementById("root")); root.render(panel());
+  await wait(() => order() === "w2,w1", "reopen after master switch transitions");
+  const original = structuredClone(state);
+  state = { ...state, profileId: "new-import", groups: [{ tag: "Pacific", nodes: ["p1", "p2"] }],
+    settings: { ...state.settings, order: [], groupOrders: {}, groupLatencyCeilings: {} } };
+  for (const listener of listeners) listener();
+  await wait(() => order() === "p1,p2", "new import displays only its own group and nodes");
+  check(!document.body.textContent.includes("上移 w2"), "new import cannot retain old candidates");
+  state = original; for (const listener of listeners) listener();
+  await wait(() => order() === "w2,w1", "original profile independently restores West");
+  check(saves.length === 0 && reloads === 0, "restoring editor never saves policy or reloads proxy");
+  root.unmount();
+  return { saves: saves.length, reloads, checks: ["separate application process restores West from SQLite", "stop/start/stop/start retains West", "temporary empty group snapshot retains editor memory", "reopen after stop/start retains West", "new import displays only its own group and candidates", "restoration does not save policy or reload core"] };
+};
 window.runPriorityFixture = async () => {
   await wait(() => order() === "w2,w1", "initial state");
   state = { ...state, initializing: true, needsReload: true, active: false, activeGroups: [], activityAvailable: false };

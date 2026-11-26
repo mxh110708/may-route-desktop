@@ -3,7 +3,7 @@ import test from "node:test";
 
 import { PriorityProfileCache, prioritySummaryState } from "./priorityProfileCache";
 import type { PriorityPanelState } from "../shared/ipc";
-import { priorityGroups, priorityTags, priorityTagsFromGroups, reconcilePrioritySettings } from "./priorityFailover";
+import { priorityGroups, priorityTags, priorityTagsFromGroups, reconcilePrioritySettings, priorityProbeTags, addProbeRoutes } from "./priorityFailover";
 import { DEFAULT_PRIORITY_SETTINGS, parsePrioritySettings, priorityContextRevision } from "./prioritySettings";
 import { buildRuntimeConfig } from "./runtimeConfig";
 
@@ -40,6 +40,27 @@ test("replacement profiles with the same length immediately remove old nodes", (
   assert.deepEqual(b.settings.order, ["new"]);
   assert.deepEqual(b.groups, [{ tag: "entry", nodes: ["new"] }]);
   assert.notEqual(a.revision, b.revision);
+});
+
+test("an imported replacement rebuilds groups, policies and probe routes exclusively from its own content", () => {
+  const cache = new PriorityProfileCache();
+  const saved = { settings: parsePrioritySettings({ group: "entry", groupOrders: { entry: ["old"], Removed: ["stale"] }, groupLatencyCeilings: { entry: 450, Removed: 700 } }), revision: "saved" };
+  const before = cache.read("old-import", content("old"), "system-proxy", saved);
+  const raw = JSON.parse(content("new")); raw.outbounds[0].tag = "Pacific";
+  const after = cache.read("new-import", JSON.stringify(raw), "system-proxy", saved);
+  assert.deepEqual(after.groups, [{ tag: "Pacific", nodes: ["new"] }]);
+  assert.deepEqual(after.settings.order, []); assert.deepEqual(after.settings.groupOrders, {});
+  assert.deepEqual(after.settings.groupLatencyCeilings, {});
+  assert.notEqual(after.hash, before.hash); assert.notEqual(after.revision, before.revision);
+  const runtime = buildRuntimeConfig(JSON.stringify(raw), "system-proxy");
+  assert.deepEqual(priorityProbeTags(runtime, after.settings), ["new"]);
+  const prepared = addProbeRoutes(runtime, [10001], after.settings, true);
+  assert.deepEqual(prepared.candidates.map(candidate => candidate.tag), ["new"]);
+  assert.equal(JSON.parse(prepared.content).route.rules[0].outbound, "new");
+  const empty = cache.read("empty-import", JSON.stringify({ ...raw, outbounds: [] }), "system-proxy", saved);
+  assert.deepEqual(empty.groups, []); assert.deepEqual(empty.settings.groupOrders, {});
+  assert.deepEqual(empty.settings.groupLatencyCeilings, {});
+  assert.throws(() => cache.read("invalid-import", "{}", "system-proxy", saved), /requires a TUN inbound/);
 });
 
 test("cached output matches the original reconciliation and revision contract", () => {

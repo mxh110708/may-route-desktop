@@ -27,8 +27,11 @@ serialized profile reload. Direct mode and stopped services are not probed.
 State changes, probe results and recovery errors are written to
 `system-proxy-health.log` in the May Route user-data directory. On Windows,
 loopback quality and actual system-proxy ownership are evaluated separately.
-A disabled switch with the expected endpoint is confirmed twice before one
-reassertion; foreign endpoints or PAC settings are never reclaimed.
+A disabled switch, changed endpoint or active PAC/detection is confirmed twice
+before reassertion while Route's system-proxy capture is on. Persistent changes
+are retried at most once per ten seconds. Turning Route off cancels queued work;
+unknown readings do not authorize writes. WinINet's active flags distinguish
+an enabled PAC from a retained but inactive PAC URL.
 
 Application and tray artwork reuse unchanged icon files from the official
 desktop project. `resources/upstream-icons.json` records the upstream commit

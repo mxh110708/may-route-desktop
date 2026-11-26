@@ -1,11 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { WindowsProxyMonitor, type WindowsProxyHealth, type ProxyRecoveryCheckpoint } from "./windowsProxyMonitor";
+import { WindowsProxyMonitor, type WindowsProxyHealth } from "./windowsProxyMonitor";
 import type { WindowsProxyOwnership } from "./systemProxyRecovery";
 
-function fixture(checkpoint = { state: "available" as ProxyRecoveryCheckpoint }) {
+function fixture() {
   let ownership: WindowsProxyOwnership = "owned", key = "service-1", active = true;
-  let writes = 0, failWrite = false, now = 0, dismissed = 0;
+  let writes = 0, failWrite = false, overwritten = false, now = 0, dismissed = 0;
+  let beforeRead: (() => Promise<void>) | null = null, duringWrite: (() => Promise<void>) | null = null;
   let notice: WindowsProxyHealth | null = null;
   const states: WindowsProxyHealth[] = [], warnings: WindowsProxyHealth[] = [];
   const queued: (() => Promise<void>)[] = [];
@@ -14,223 +15,142 @@ function fixture(checkpoint = { state: "available" as ProxyRecoveryCheckpoint })
       if (!active) return null;
       const captured = key;
       return { key, current: () => active && key === captured,
-        read: async () => ownership,
-        repair: async () => { writes++; if (failWrite) throw new Error("deadline"); ownership = "owned"; } };
+        read: async () => { await beforeRead?.(); return ownership; },
+        repair: async () => { writes++; await duringWrite?.(); if (failWrite) throw new Error("deadline"); if (!overwritten) ownership = "owned"; } };
     },
-    enqueue: async op => { queued.push(op); },
-    now: () => now,
+    enqueue: async op => { queued.push(op); }, now: () => now,
     changed: state => states.push(state), warning: state => { warnings.push(state); notice = state; }, log: () => {},
     dismissWarning: () => { if (notice !== null) dismissed++; notice = null; },
-    loadCheckpoint: () => checkpoint.state,
-    saveCheckpoint: state => { checkpoint.state = state; },
   });
   return { monitor, states, warnings, queued,
     pollAt: async (at: number) => { now = at; return monitor.poll(); },
     get notice() { return notice; }, get dismissed() { return dismissed; },
     set ownership(v: WindowsProxyOwnership) { ownership = v; },
-    set active(v: boolean) { active = v; },
-    set key(v: string) { key = v; },
-    set failWrite(v: boolean) { failWrite = v; },
+    set active(v: boolean) { active = v; }, set key(v: string) { key = v; },
+    set failWrite(v: boolean) { failWrite = v; }, set overwritten(v: boolean) { overwritten = v; },
+    set beforeRead(v: (() => Promise<void>) | null) { beforeRead = v; },
+    set duringWrite(v: (() => Promise<void>) | null) { duringWrite = v; },
     get writes() { return writes; },
     flush: async () => { while (queued.length) await queued.shift()!(); },
   };
 }
 
-test("local schedule confirms a disabled matching endpoint within two polls without network probes", async () => {
-  const f = fixture();
-  assert.equal(await f.monitor.poll(), 2000);
-  f.ownership = "detached";
-  assert.equal(await f.monitor.poll(), 1000);
-  assert.equal(f.writes, 0);
-  await f.monitor.poll();
-  assert.equal(f.states.at(-1), "repairing");
-  await f.flush();
-  assert.equal(f.writes, 1);
-  assert.equal(f.states.at(-1), "healthy");
+test("healthy settings cause no writes or warnings, including a new application session", async () => {
+  const f = fixture(); f.monitor.newSession();
+  for (let at = 0; at <= 60000; at += 2000) { await f.pollAt(at); await f.flush(); }
+  assert.equal(f.states.at(-1), "healthy"); assert.equal(f.writes, 0); assert.deepEqual(f.warnings, []);
 });
 
-test("queued writes do not block reads or duplicate repair; stop/TUN invalidate the queued action", async () => {
-  const f = fixture(); f.ownership = "detached";
-  await f.monitor.poll(); await f.monitor.poll();
-  await f.monitor.poll(); await f.monitor.poll();
-  assert.equal(f.queued.length, 1);
-  f.active = false;
-  await f.monitor.poll(); await f.flush();
-  assert.equal(f.writes, 0);
-  assert.equal(f.states.at(-1), "inactive");
+for (const mismatch of ["detached", "foreign"] as const) {
+  test(`confirms and repairs ${mismatch} settings without network probes or a foreign-owner pause`, async () => {
+    const f = fixture(); f.ownership = mismatch;
+    assert.equal(await f.pollAt(0), 1000); assert.equal(f.writes, 0);
+    await f.pollAt(1000); assert.equal(f.states.at(-1), "repairing");
+    await f.flush(); assert.equal(f.writes, 1); assert.equal(f.states.at(-1), "healthy");
+  });
+}
+
+test("continued overwrites are retried without requiring a stable healthy period", async () => {
+  const f = fixture(); f.ownership = "foreign"; f.overwritten = true;
+  await f.pollAt(0); await f.pollAt(1000); await f.flush();
+  for (let at = 3000; at <= 41000; at += 2000) { await f.pollAt(at); await f.flush(); }
+  assert.equal(f.writes, 5); assert.deepEqual(f.warnings, ["retrying"]);
+  f.overwritten = false;
+  for (let at = 43000; at <= 51000; at += 2000) { await f.pollAt(at); await f.flush(); }
+  assert.equal(f.writes, 6); assert.equal(f.states.at(-1), "healthy");
+  assert.equal(f.notice, null); assert.equal(f.dismissed, 1);
 });
 
-test("repair quota survives node changes, service transitions and stale samples", async () => {
+test("brief healthy readings cannot bypass the write cooldown", async () => {
   const f = fixture(); f.ownership = "detached";
-  await f.monitor.poll(); await f.monitor.poll(); await f.flush();
-  // Changing node selection deliberately is not part of the local identity.
-  f.active = false; await f.monitor.poll();
-  f.active = true; f.key = "automatic-reload";
-  f.ownership = "detached";
-  await f.monitor.poll(); await f.monitor.poll(); await f.flush();
-  assert.equal(f.writes, 1);
-  assert.equal(f.states.at(-1), "suspended");
-  for (const time of [2000, 4000, 6000, 8000, 10000]) await f.pollAt(time);
-  assert.deepEqual(f.warnings, ["suspended"]);
-  f.monitor.newSession();
-  await f.monitor.poll(); await f.monitor.poll(); await f.flush();
+  await f.pollAt(0); await f.pollAt(1000); await f.flush();
+  await f.pollAt(2000); f.ownership = "foreign";
+  await f.pollAt(3000); await f.pollAt(4000); await f.flush(); assert.equal(f.writes, 1);
+  for (let at = 5000; at <= 11000; at += 2000) { await f.pollAt(at); await f.flush(); }
   assert.equal(f.writes, 2);
 });
 
-test("foreign address/PAC is visible and warned once, never automatically reclaimed", async () => {
+test("turning Route off immediately cancels queued writes and clears notices", async () => {
   const f = fixture(); f.ownership = "foreign";
-  await f.monitor.poll(); await f.monitor.poll();
-  assert.deepEqual(f.warnings, []);
-  for (const time of [2000, 4000, 6000, 8000, 10000, 12000]) await f.pollAt(time);
-  assert.deepEqual(f.warnings, ["foreign"]);
-  f.ownership = "detached";
-  await f.monitor.poll(); await f.monitor.poll(); await f.flush();
-  assert.equal(f.writes, 0);
-  assert.equal(f.states.at(-1), "suspended");
-});
-
-test("ownership change while repair waits cancels the write and preserves yielding", async () => {
-  const f = fixture(); f.ownership = "detached";
-  await f.monitor.poll(); await f.monitor.poll();
-  f.ownership = "foreign"; await f.flush();
-  f.ownership = "detached"; await f.monitor.poll(); await f.monitor.poll();
-  await f.flush(); assert.equal(f.writes, 0);
-});
-
-test("RPC timeout stays unknown and never repeats even if a late write succeeds", async () => {
-  const f = fixture(); f.ownership = "detached"; f.failWrite = true;
-  await f.monitor.poll(); await f.monitor.poll(); await f.flush();
-  assert.equal(f.states.at(-1), "unknown");
-  f.ownership = "owned"; await f.monitor.poll();
-  f.ownership = "detached"; await f.monitor.poll(); await f.monitor.poll(); await f.flush();
-  assert.equal(f.writes, 1);
-  assert.equal(f.states.at(-1), "unknown");
-});
-
-test("confirmation cannot span a profile or service identity change", async () => {
-  const f = fixture(); f.ownership = "detached";
-  await f.monitor.poll(); f.key = "service-2"; await f.monitor.poll();
-  assert.equal(f.queued.length, 0);
-  await f.monitor.poll(); await f.flush(); assert.equal(f.writes, 1);
-});
-
-test("restarting only the application cannot replenish the persisted repair allowance", async () => {
-  const checkpoint = { state: "available" as ProxyRecoveryCheckpoint };
-  const first = fixture(checkpoint); first.ownership = "detached";
-  await first.monitor.poll(); await first.monitor.poll(); await first.flush();
-  assert.equal(checkpoint.state, "used");
-  const second = fixture(checkpoint); second.ownership = "detached";
-  await second.monitor.poll(); await second.monitor.poll(); await second.flush();
-  assert.equal(second.writes, 0); assert.equal(second.states.at(-1), "suspended");
-});
-
-test("timed-out repair remains uncertain across application restart", async () => {
-  const checkpoint = { state: "unknown" as ProxyRecoveryCheckpoint };
-  const f = fixture(checkpoint); f.ownership = "detached";
-  await f.monitor.poll(); await f.monitor.poll(); await f.flush();
-  assert.equal(f.writes, 0); assert.equal(f.states.at(-1), "unknown");
-});
-
-test("Clash startup-style brief off/on changes do not produce a persistent warning", async () => {
-  const checkpoint = { state: "used" as ProxyRecoveryCheckpoint };
-  const f = fixture(checkpoint);
-  f.ownership = "detached"; await f.pollAt(0); await f.pollAt(1000);
-  assert.equal(f.states.at(-1), "suspended");
-  f.ownership = "owned"; await f.pollAt(2000);
-  f.ownership = "detached"; await f.pollAt(4000); await f.pollAt(5000);
-  f.ownership = "owned"; await f.pollAt(8000);
-  assert.equal(f.states.at(-1), "healthy");
-  assert.deepEqual(f.warnings, []); assert.equal(f.notice, null); assert.equal(f.writes, 0);
-});
-
-test("a matching endpoint rearms after fifteen continuously observed healthy seconds", async () => {
-  const checkpoint = { state: "available" as ProxyRecoveryCheckpoint };
-  const f = fixture(checkpoint); f.ownership = "detached";
-  await f.pollAt(0); await f.pollAt(1000); await f.flush();
-  assert.equal(f.writes, 1); assert.equal(checkpoint.state, "used");
-  for (let time = 3000; time <= 17000; time += 2000) await f.pollAt(time);
-  assert.equal(checkpoint.state, "used");
-  await f.pollAt(19000); assert.equal(checkpoint.state, "available");
-  f.ownership = "detached"; await f.pollAt(21000); await f.pollAt(22000); await f.flush();
-  assert.equal(f.writes, 2); assert.deepEqual(f.warnings, []);
-});
-
-test("separate close/reopen incidents recover while startup chatter remains silent", async () => {
-  const f = fixture(); f.ownership = "detached";
-  await f.pollAt(0); await f.pollAt(1000); await f.flush();
-  assert.equal(f.writes, 1);
-  for (let time = 3000; time <= 21000; time += 2000) await f.pollAt(time);
-  f.ownership = "detached"; await f.pollAt(23000); await f.pollAt(24000); await f.flush();
-  assert.equal(f.writes, 2);
-  await f.pollAt(26000);
-  f.ownership = "detached"; await f.pollAt(28000); await f.pollAt(29000);
-  f.ownership = "owned"; await f.pollAt(32000);
-  assert.deepEqual(f.warnings, []); assert.equal(f.notice, null);
-  assert.equal(f.states.at(-1), "healthy"); assert.equal(f.writes, 2);
-});
-
-test("continuous toggling does not earn repeated writes by briefly appearing healthy", async () => {
-  const checkpoint = { state: "available" as ProxyRecoveryCheckpoint };
-  const f = fixture(checkpoint); f.ownership = "detached";
-  await f.pollAt(0); await f.pollAt(1000); await f.flush();
-  for (let time = 3000; time < 60000; time += 2000) {
-    f.ownership = time % 4000 === 3000 ? "owned" : "detached";
-    await f.pollAt(time); await f.flush();
-  }
-  assert.equal(f.writes, 1); assert.equal(checkpoint.state, "used");
-  assert.deepEqual(f.warnings, []);
-});
-
-test("a persistent outage warns after ten observed seconds and recovery dismisses the active notice", async () => {
-  const f = fixture({ state: "used" }); f.ownership = "detached";
   await f.pollAt(0); await f.pollAt(1000);
-  for (const time of [3000, 5000, 7000, 9000]) await f.pollAt(time);
-  assert.deepEqual(f.warnings, []);
-  await f.pollAt(11000); await f.pollAt(13000);
-  assert.deepEqual(f.warnings, ["suspended"]); assert.equal(f.notice, "suspended");
-  f.ownership = "owned"; await f.pollAt(15000);
-  assert.equal(f.notice, null); assert.equal(f.dismissed, 1); assert.equal(f.writes, 0);
+  f.active = false; f.monitor.stop(); await f.flush();
+  for (let at = 3000; at <= 30000; at += 2000) { await f.pollAt(at); await f.flush(); }
+  assert.equal(f.writes, 0); assert.equal(f.states.at(-1), "inactive"); assert.deepEqual(f.warnings, []);
 });
 
-test("sleep and unread observation gaps do not count as stable recovery or persistent warning", async () => {
-  const checkpoint = { state: "used" as ProxyRecoveryCheckpoint };
-  const f = fixture(checkpoint);
-  await f.pollAt(0); await f.pollAt(2000); await f.pollAt(100000);
-  assert.equal(checkpoint.state, "used");
-  f.ownership = "detached"; await f.pollAt(102000); await f.pollAt(103000);
-  await f.pollAt(200000); assert.deepEqual(f.warnings, []);
-  assert.equal(f.writes, 0); assert.equal(checkpoint.state, "used");
+test("stale reads cannot enqueue a repair after the master switch is turned off", async () => {
+  const f = fixture(); f.ownership = "foreign"; await f.pollAt(0);
+  let release!: () => void;
+  f.beforeRead = () => new Promise<void>(resolve => { release = resolve; });
+  const reading = f.pollAt(1000); await Promise.resolve(); await Promise.resolve();
+  f.active = false; f.monitor.stop(); release(); await reading; await f.flush();
+  assert.equal(f.writes, 0); assert.equal(f.states.at(-1), "inactive");
 });
 
-test("a foreign takeover cannot rearm from later healthy samples without an explicit Route action", async () => {
-  const checkpoint = { state: "available" as ProxyRecoveryCheckpoint };
-  const f = fixture(checkpoint); f.ownership = "foreign";
-  await f.pollAt(0); assert.equal(checkpoint.state, "foreign");
-  f.ownership = "owned";
-  for (let time = 2000; time <= 24000; time += 2000) await f.pollAt(time);
-  assert.equal(checkpoint.state, "foreign");
-  f.ownership = "detached"; await f.pollAt(26000); await f.pollAt(27000); await f.flush();
-  assert.equal(f.writes, 0);
-  f.monitor.newSession(); await f.pollAt(28000); await f.pollAt(29000); await f.flush();
+test("a stop and new session cannot revive a stale queued repair", async () => {
+  const f = fixture(); f.ownership = "foreign";
+  await f.pollAt(0); await f.pollAt(1000);
+  f.active = false; f.monitor.stop(); f.active = true; f.key = "service-2"; f.monitor.newSession();
+  await f.flush(); assert.equal(f.writes, 0);
+  await f.pollAt(2000); await f.pollAt(3000); await f.flush(); assert.equal(f.writes, 1);
+});
+
+test("TUN or a profile change invalidates a queued write", async () => {
+  for (const change of ["tun", "profile"] as const) {
+    const f = fixture(); f.ownership = "foreign"; await f.pollAt(0); await f.pollAt(1000);
+    if (change === "tun") f.active = false; else f.key = "profile-2";
+    await f.flush(); assert.equal(f.writes, 0);
+  }
+});
+
+test("a changed external endpoint while waiting is repaired; a restored or unreadable endpoint is not", async () => {
+  for (const reading of ["foreign", "owned", "unknown"] as const) {
+    const f = fixture(); f.ownership = "detached"; await f.pollAt(0); await f.pollAt(1000);
+    f.ownership = reading; await f.flush(); assert.equal(f.writes, reading === "foreign" ? 1 : 0);
+  }
+});
+
+test("unknown registry readings never authorize writes and do not permanently disable later recovery", async () => {
+  const f = fixture(); f.ownership = "unknown";
+  for (let at = 0; at <= 10000; at += 2000) await f.pollAt(at);
+  assert.equal(f.writes, 0); assert.equal(f.states.at(-1), "unknown");
+  f.ownership = "foreign"; await f.pollAt(12000); await f.pollAt(13000); await f.flush(); assert.equal(f.writes, 1);
+});
+
+test("a timed-out RPC is read back and retried only after cooldown; a late success causes no write", async () => {
+  const f = fixture(); f.ownership = "detached"; f.failWrite = true;
+  await f.pollAt(0); await f.pollAt(1000); await f.flush(); assert.equal(f.states.at(-1), "unknown");
+  f.failWrite = false;
+  for (let at = 3000; at <= 9000; at += 2000) { await f.pollAt(at); await f.flush(); }
   assert.equal(f.writes, 1);
+  f.ownership = "owned"; await f.pollAt(11000); await f.flush(); assert.equal(f.writes, 1);
+  f.ownership = "foreign"; await f.pollAt(13000); await f.pollAt(14000); await f.flush(); assert.equal(f.writes, 2);
 });
 
-test("uncertain repair stays latched even after a minute of healthy readings", async () => {
-  const checkpoint = { state: "available" as ProxyRecoveryCheckpoint };
-  const f = fixture(checkpoint); f.ownership = "detached"; f.failWrite = true;
-  await f.pollAt(0); await f.pollAt(1000); await f.flush();
-  f.ownership = "owned";
-  for (let time = 3000; time <= 65000; time += 2000) await f.pollAt(time);
-  assert.equal(checkpoint.state, "unknown"); assert.equal(f.states.at(-1), "unknown");
-  f.ownership = "detached"; await f.pollAt(67000); await f.pollAt(68000); await f.flush();
+test("a slow pending RPC is never duplicated and stop suppresses its stale result", async () => {
+  const f = fixture(); f.ownership = "foreign";
+  let release!: () => void;
+  f.duringWrite = () => new Promise<void>(resolve => { release = resolve; });
+  await f.pollAt(0); await f.pollAt(1000);
+  const writing = f.flush(); await Promise.resolve(); await Promise.resolve(); await Promise.resolve();
+  for (let at = 3000; at <= 31000; at += 2000) await f.pollAt(at);
+  assert.equal(f.writes, 1); assert.equal(f.queued.length, 0);
+  f.active = false; f.monitor.stop(); release(); await writing;
+  assert.equal(f.states.at(-1), "inactive"); assert.equal(f.writes, 1);
+});
+
+test("confirmation cannot span a service change or an unobserved sleep gap", async () => {
+  const f = fixture(); f.ownership = "foreign";
+  await f.pollAt(0); f.key = "service-2"; await f.pollAt(1000); assert.equal(f.queued.length, 0);
+  await f.pollAt(100000); assert.equal(f.queued.length, 0); assert.deepEqual(f.warnings, []);
+  await f.pollAt(101000); await f.flush(); assert.equal(f.writes, 1);
+});
+
+test("a delayed queue starts its cooldown at actual dispatch", async () => {
+  const f = fixture(); f.ownership = "foreign"; f.overwritten = true;
+  await f.pollAt(0); await f.pollAt(1000);
+  await f.pollAt(21000); await f.flush(); assert.equal(f.writes, 1);
+  for (let at = 23000; at <= 29000; at += 2000) { await f.pollAt(at); await f.flush(); }
   assert.equal(f.writes, 1);
-});
-
-test("a process restart during an in-flight repair cannot turn the old command into a fresh allowance", async () => {
-  const checkpoint = { state: "repairing" as ProxyRecoveryCheckpoint };
-  const f = fixture(checkpoint);
-  for (let time = 0; time <= 20000; time += 2000) await f.pollAt(time);
-  f.ownership = "detached"; await f.pollAt(22000); await f.pollAt(23000); await f.flush();
-  assert.equal(f.states.at(-1), "unknown"); assert.equal(f.writes, 0);
-  assert.equal(checkpoint.state, "repairing");
+  await f.pollAt(31000); await f.flush(); assert.equal(f.writes, 2);
 });

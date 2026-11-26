@@ -1,8 +1,8 @@
 # May Route 文档
 
-基线：Windows x64，1.14.4-may.1。[English overview](../README.en.md) · [English guide](USER-GUIDE.en.md)。
+基线：Windows x64，1.14.4-may.2。[English overview](../README.en.md) · [English guide](USER-GUIDE.en.md)。
 
-[本版发行说明](RELEASE-1.14.4-may.1.zh-CN.md) · [sing-box 1.14.4 同步与验证](UPSTREAM-SING-BOX-1.14.4-2026-11-25.zh-CN.md)。
+[本版发行说明](RELEASE-1.14.4-may.2.zh-CN.md) · [sing-box 1.14.4 同步与验证](UPSTREAM-SING-BOX-1.14.4-2026-11-25.zh-CN.md)。
 
 ## 使用顺序
 

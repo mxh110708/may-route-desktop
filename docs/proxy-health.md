@@ -1,5 +1,24 @@
 # System proxy quality monitoring
 
+## 2026-11-26: continuous keeping controlled by Route's master switch
+
+1.14.4-may.2 supersedes the ownership-yield and permanent suspension behavior
+below. With system-proxy capture on, two local observations confirm a disabled
+or changed endpoint or active PAC/auto-detection. The guard repairs it through
+the serialized service operation queue, with at least ten seconds between
+dispatches. Healthy settings are not rewritten. Read failures authorize no
+write; bounded RPC failures are read back before another cooldown-limited
+attempt. Stop invalidates queued/awaiting work immediately; TUN and stopped
+capture have no context for this guard. Legacy checkpoint values no longer latch
+the guard off. Node recovery and Internet quality probes remain separate.
+
+Active WinINet flags, rather than the mere presence of an old PAC URL in the
+registry, determine whether PAC/detection is enabled. The native query is
+read-only and runs in the Electron user's session. See the Microsoft
+[connection option definitions](https://learn.microsoft.com/en-us/windows/win32/api/wininet/ns-wininet-internet_per_conn_optiona).
+
+All following dated proxy-keeping descriptions are historical where they differ.
+
 ## 2026-10-20: stable-period system-proxy keeping
 
 Local proxy keeping now confirms repeated matching-endpoint disablement before

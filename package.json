@@ -55,7 +55,7 @@
     "test:system-proxy-recovery": "tsx --test src/main/systemProxyRecovery.test.ts src/main/windowsProxyMonitor.test.ts src/main/priorityFailover.test.ts src/main/priorityLatency.test.ts src/main/priorityProbeScheduler.test.ts src/main/priorityProfileCache.test.ts src/main/priorityGroupSettings.test.ts src/main/priorityActivity.test.ts src/main/priorityProbeBudget.test.ts src/main/priorityMonitors.test.ts src/main/priorityRuntimeRestore.test.ts",
     "test:update-source": "tsx --test --test-timeout=15000 src/main/updateSource.test.ts src/main/updateConnection.test.ts src/main/updateDownload.test.ts src/main/updateInstallation.test.ts",
     "test:update-connection:electron": "electron scripts/testUpdateConnection.cjs",
-    "test:priority-editor:electron": "electron scripts/testPrioritySettings.cjs",
+    "test:priority-editor:electron": "node scripts/testPriorityRestart.cjs",
     "test:installer-preflight": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/test-installer-preflight.ps1",
     "test:installer-shortcuts": "powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File scripts/test-installer-shortcuts.ps1",
     "test:installer-shortcut-host": "node scripts/testInstallerShortcutHost.cjs",

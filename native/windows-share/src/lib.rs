@@ -16,6 +16,11 @@ use windows::ApplicationModel::DataTransfer::{
 use windows::Foundation::TypedEventHandler;
 use windows::Storage::{IStorageItem, StorageFile};
 use windows::Win32::Foundation::HWND;
+use windows::Win32::Networking::WinInet::{
+    INTERNET_OPTION_PER_CONNECTION_OPTION, INTERNET_PER_CONN, INTERNET_PER_CONN_FLAGS,
+    INTERNET_PER_CONN_FLAGS_UI, INTERNET_PER_CONN_OPTION_LISTW, INTERNET_PER_CONN_OPTIONW,
+    InternetQueryOptionW,
+};
 use windows::Win32::System::Threading::GetCurrentProcessId;
 use windows::Win32::System::WinRT::{
     RO_INIT_MULTITHREADED, RO_INIT_SINGLETHREADED, RO_INIT_TYPE, RoInitialize, RoUninitialize,
@@ -26,6 +31,34 @@ use windows::core::{HSTRING, Interface, Ref, factory};
 use windows_collections::IIterable;
 
 const SHARE_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Read current LAN proxy flags in the Electron user's session. No writes,
+/// proxy addresses, PAC URLs, or allocated WinINet strings cross this boundary.
+#[napi(js_name = "readSystemProxyFlags")]
+pub fn read_system_proxy_flags() -> NapiResult<u32> {
+    let mut option = INTERNET_PER_CONN_OPTIONW {
+        dwOption: INTERNET_PER_CONN(INTERNET_PER_CONN_FLAGS_UI),
+        ..Default::default()
+    };
+    let mut options = INTERNET_PER_CONN_OPTION_LISTW {
+        dwSize: mem::size_of::<INTERNET_PER_CONN_OPTION_LISTW>() as u32,
+        dwOptionCount: 1,
+        pOptions: &mut option,
+        ..Default::default()
+    };
+    let mut length = mem::size_of::<INTERNET_PER_CONN_OPTION_LISTW>() as u32;
+    unsafe {
+        if InternetQueryOptionW(None, INTERNET_OPTION_PER_CONNECTION_OPTION,
+            Some((&mut options as *mut INTERNET_PER_CONN_OPTION_LISTW).cast()), &mut length).is_err() {
+            option.dwOption = INTERNET_PER_CONN_FLAGS;
+            length = mem::size_of::<INTERNET_PER_CONN_OPTION_LISTW>() as u32;
+            InternetQueryOptionW(None, INTERNET_OPTION_PER_CONNECTION_OPTION,
+                Some((&mut options as *mut INTERNET_PER_CONN_OPTION_LISTW).cast()), &mut length)
+                .map_err(|error| Error::new(Status::GenericFailure, windows_error("read Windows proxy flags", error)))?;
+        }
+        Ok(option.Value.dwValue)
+    }
+}
 
 type ShareDeferred = JsDeferred<(), fn(Env) -> NapiResult<()>>;
 

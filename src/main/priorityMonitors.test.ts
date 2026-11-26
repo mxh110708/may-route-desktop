@@ -36,6 +36,27 @@ test("idle groups send no probes; simultaneous used groups have independent fail
   assert.equal(f.errors.length, 0);
 });
 
+test("replacing a profile cancels old probes and never switches its old nodes in the new profile", async () => {
+  let release!: () => void;
+  const calls: string[] = [], switches: string[] = [], errors: unknown[] = [];
+  let selected = "old-main", now = 0;
+  const monitors = new PriorityMonitors({ now: () => now, selected: () => selected, current: () => true,
+    probe: async candidate => { calls.push(candidate.tag); if (candidate.tag === "old-main") return new Promise(resolve => { release = () => resolve(quality(false)); }); return quality(true); },
+    switch: async (_group, _from, to, current) => { if (!current()) return false; switches.push(to); return true; },
+    changed: () => {}, error: error => errors.push(error) });
+  monitors.configure([{ tag: "West", nodes: ["old-main", "old-backup"] }], [{ tag: "old-main", port: 10001 }, { tag: "old-backup", port: 10002 }], settings());
+  monitors.tick(["West"]); await drain(); assert.ok(release);
+  selected = "new-main";
+  monitors.configure([{ tag: "West", nodes: ["new-main", "new-backup"] }], [{ tag: "new-main", port: 10003 }, { tag: "new-backup", port: 10004 }], settings());
+  const boundary = calls.length;
+  release(); await drain();
+  for (now = 1000; now <= 11000; now += 5000) { monitors.tick(["West"]); await drain(); }
+  assert.ok(calls.slice(boundary).every(tag => tag.startsWith("new-")));
+  assert.deepEqual(monitors.active[0].policy.tags, ["new-main", "new-backup"]);
+  assert.equal(monitors.active[0].policy.preferred, "new-main");
+  assert.deepEqual(switches, []); assert.deepEqual(errors, []);
+});
+
 test("region changes retain each order and preference; inactive settings edits do not reset healthy regions", async () => {
   const f = setup(); f.monitors.update(parsePrioritySettings({ ...settings(), groupOrders: { West: ["w2", "w1"], Europe: ["e2"] } }));
   await f.tick(0, ["West"]); const west = f.monitors.active[0];

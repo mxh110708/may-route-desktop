@@ -4,7 +4,7 @@ A Windows sing-box client with Rule/Global/Direct routing, System Proxy/TUN capt
 
 [简体中文](README.md) · [Releases](https://github.com/mxh110708/may-route-desktop/releases/latest) · [User guide](docs/USER-GUIDE.en.md) · [Documentation](docs/README.md)
 
-The maintained desktop/installer acceptance target is **Windows x64**; the documentation baseline is **1.14.4-may.1**. Upstream Linux scripts and cross-platform core code do not establish equivalent May desktop support on other platforms.
+The maintained desktop/installer acceptance target is **Windows x64**; the documentation baseline is **1.14.4-may.2**. Upstream Linux scripts and cross-platform core code do not establish equivalent May desktop support on other platforms.
 
 The current source integrates sing-box **1.14.4** as **1.14.4-may.1**. May revisions restart at 1 for each new upstream base. See the [release notes](docs/RELEASE-1.14.4-may.1.zh-CN.md) and [upstream synchronization record](docs/UPSTREAM-SING-BOX-1.14.4-2026-11-25.zh-CN.md) for provenance, compatibility changes and validation.
 
@@ -16,7 +16,7 @@ This is an independently maintained derivative of [sing-box-for-desktop](https:/
 - Configuration, groups, node selection, manual latency tests, connections and logs.
 - Per-entry-group priority and regional latency limits, monitoring only groups actually traversed by user activity.
 - Confirmed unreachable, sustained-high-latency and repeated short-window failure handling, with backup rechecks and stable failback.
-- Ownership-aware system-proxy recovery without repeated healthy-setting writes or fighting foreign proxies/PAC.
+- Continuous system-proxy keeping while Route's system-proxy capture is on; turning the master switch off stops the guard. Healthy settings are not rewritten.
 - Native Windows tray: left click restores the main window; right click opens the menu; submenus expand on hover.
 - Fixed May Release updates, separate update-proxy settings and cancellable downloads before installer handoff.
 
@@ -34,7 +34,9 @@ Three HTTPS targets are used, with at least two successful responses for reachab
 
 Manual selection of a participating node makes it the current preferred node; automatic failover does not erase that preference. See [detailed policy](docs/PRIORITY-FAILOVER.zh-CN.md).
 
-System-proxy health and Windows setting ownership are evaluated separately. Foreign endpoints/PAC cause recovery to yield, not repeatedly reclaim the setting. Hidden UI work can pause while proxy service, diagnostics and monitoring continue. Memory depends on state, profile, traffic and active views; historical measurements are not a fixed RAM promise.
+System-proxy health and Windows settings are evaluated separately. While system-proxy capture is on, confirmed endpoint/PAC/auto-detection changes are repaired, with at least ten seconds between retries. Turn Route off before using another proxy client. Unknown readings do not authorize writes. Hidden UI work can pause while proxy service, diagnostics and monitoring continue. Memory depends on state, profile, traffic and active views; historical measurements are not a fixed RAM promise.
+
+Desktop [1.14.4-may.2](docs/RELEASE-1.14.4-may.2.zh-CN.md) fixes editor restoration and proxy keeping; the paired core remains pinned to 1.14.4-may.1. New profiles rebuild candidate groups and probe routes from their own content. A recovered editor group name never imports old node or runtime state.
 
 See the [user guide](docs/USER-GUIDE.en.md), [troubleshooting](docs/TROUBLESHOOTING.zh-CN.md), [update connection](docs/UPDATE-CONNECTION.zh-CN.md), [development](docs/DEVELOPMENT.zh-CN.md), [implementation notes](CUSTOM.md) and [history](docs/HISTORY.md).
 

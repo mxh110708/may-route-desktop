@@ -136,7 +136,7 @@ export interface ProfilesState {
   selectedId: string | null;
   profiles: ProfileMetadata[];
   captureMode: CaptureMode;
-  windowsProxyHealth?: "inactive" | "unsupported" | "healthy" | "confirming" | "repairing" | "foreign" | "suspended" | "unknown";
+  windowsProxyHealth?: "inactive" | "unsupported" | "healthy" | "confirming" | "repairing" | "retrying" | "unknown";
 }
 
 export interface ProfileCreate {

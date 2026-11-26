@@ -11,7 +11,7 @@
 | Core | 同级 `../sing-box` 的 May 核心源码；构建脚本核对选定版本。 |
 | Core 来源锁 | `core-source.json` 固定 May Core 仓库、标签和提交；正式构建与 CI 同时核对，不能只按官方基础版本取 Core。 |
 | 上游版本 | `version.json`，当前源码 1.14.4，Go 固定 `go1.26.10`。 |
-| May 修订 | `custom-version.json`，当前修订 1，组合成 1.14.4-may.1。同一上游基础版本内递增，切换基础版本时从 1 开始。 |
+| May 修订 | `custom-version.json`，当前桌面修订 2，组合成 1.14.4-may.2；配套 Core 保持锁定 1.14.4-may.1。同一上游基础版本内递增，切换基础版本时从 1 开始。 |
 | JS 工具 | `package.json` 固定 Node 26.7.0、pnpm 11.19.0，使用仓库锁文件。 |
 
 不要把 May Monitor 的 Go 1.27.3 工具链要求套到 Route。上游模块路径、协议名和图标来源保持技术与许可证身份，不随品牌字符串批量替换。

@@ -1,5 +1,5 @@
 import { BrowserWindow, ipcMain } from "electron";
-import { PRIORITY_EDITOR_GROUPS_PREFERENCE, parsePriorityEditorGroups } from "@dashboard/lib/priorityEditorPreference";
+import { PRIORITY_EDITOR_GROUPS_PREFERENCE, parsePriorityEditorGroups, recoverPriorityEditorGroup } from "@dashboard/lib/priorityEditorPreference";
 
 import {
   PREFERENCES_CALL,
@@ -13,6 +13,8 @@ import {
   preferenceSnapshot,
   removePreference,
   setPreference,
+  Preference,
+  settingsDatabase,
 } from "./database";
 
 type PreferenceParser = (value: unknown) => unknown;
@@ -122,6 +124,15 @@ const rendererPreferences: Record<string, PreferenceParser> = {
 };
 
 const rendererPreferenceNames = Object.keys(rendererPreferences);
+const priorityEditorGroups = new Preference<Record<string, string>>(PRIORITY_EDITOR_GROUPS_PREFERENCE, {}, parsePriorityEditorGroups);
+
+export function restorePriorityEditorPreference(profileId: string | null, groups: readonly { tag: string }[]): void {
+  const remembered = priorityEditorGroups.get();
+  const profiles = settingsDatabase().prepare("SELECT id FROM profiles").all() as { id: string }[];
+  const recovered = recoverPriorityEditorGroup(remembered, profileId, profiles.map(profile => profile.id), groups);
+  if (recovered !== remembered) saveRendererPreference(PRIORITY_EDITOR_GROUPS_PREFERENCE, recovered);
+}
+
 export function saveRendererPreference(name: string, value: unknown): void {
   const parse = rendererPreferences[name];
   if (!parse) throw new Error("unknown renderer preference");

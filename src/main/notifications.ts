@@ -18,14 +18,12 @@ export function dismissSystemProxyRecoveryWarning(): void {
   notification?.close();
 }
 
-export function showSystemProxyRecoveryWarning(foreign = false): void {
+export function showSystemProxyRecoveryWarning(): void {
   if (!Notification.isSupported()) return;
   dismissSystemProxyRecoveryWarning();
   const notification = new Notification({
-    title: "May Route 系统代理守护已暂停",
-    body: foreign
-      ? "检测到 Windows 代理地址、PAC 或自动检测设置变化。May Route 已暂停自动接管；如需恢复，请在 Route 中主动操作。"
-      : "系统代理持续关闭，近期自动恢复后尚未稳定。May Route 已暂停重复写入；可在概述中手动恢复，或在代理恢复稳定后继续自动守护。",
+    title: "May Route 正在保持系统代理",
+    body: "Windows 系统代理设置持续被改动，Route 将继续按间隔恢复。需要使用其他代理程序时，请先关闭 Route 的代理总开关。",
   });
   systemProxyWarning = notification;
   notification.on("close", () => {

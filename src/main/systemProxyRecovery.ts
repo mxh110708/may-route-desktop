@@ -6,7 +6,7 @@ import { connect as connectTLS, type TLSSocket } from "node:tls";
 
 import type { SystemProxyEndpoint } from "./runtimeConfig";
 
-export function summarizeWindowsProxy(registry: string, endpoint: SystemProxyEndpoint) {
+export function summarizeWindowsProxy(registry: string, endpoint: SystemProxyEndpoint, activeFlags?: number) {
   const value = (key: string) => new RegExp(`^\\s*${key}\\s+REG_\\w+\\s+(.*)$`, "mi").exec(registry)?.[1].trim() ?? "";
   const expected = `${endpoint.server}:${endpoint.port}`.toLowerCase();
   const proxy = value("ProxyServer").toLowerCase().replace(/^https?:\/\//, "");
@@ -14,18 +14,21 @@ export function summarizeWindowsProxy(registry: string, endpoint: SystemProxyEnd
     if (!proxy.includes("=")) return proxy === expected;
     return proxy.split(";").some(item => item.trim() === `${scheme}=${expected}`);
   };
-  return { enabled: Number(value("ProxyEnable")) === 1, httpMatches: matches("http"), httpsMatches: matches("https"),
-    pacConfigured: value("AutoConfigURL") !== "", autoDetect: Number(value("AutoDetect")) === 1 };
+  return { enabled: activeFlags === undefined ? Number(value("ProxyEnable")) === 1 : (activeFlags & 2) !== 0,
+    httpMatches: matches("http"), httpsMatches: matches("https"),
+    pacConfigured: activeFlags === undefined ? value("AutoConfigURL") !== "" : (activeFlags & 4) !== 0,
+    autoDetect: activeFlags === undefined ? Number(value("AutoDetect")) === 1 : (activeFlags & 8) !== 0 };
 }
 
 /** Read-only, bounded diagnostic. Never log PAC URLs or foreign proxy addresses. */
 export async function readWindowsProxyDiagnostic(endpoint: SystemProxyEndpoint) {
   if (process.platform !== "win32") return { supported: false };
   try {
-    const { stdout } = await promisify(execFile)(join(process.env.SystemRoot ?? "C:\\Windows", "System32", "reg.exe"),
+    const [{ stdout }, activeFlags] = await Promise.all([promisify(execFile)(join(process.env.SystemRoot ?? "C:\\Windows", "System32", "reg.exe"),
       ["query", "HKCU\\Software\\Microsoft\\Windows\\CurrentVersion\\Internet Settings"],
-      { timeout: 2000, windowsHide: true, maxBuffer: 128 * 1024 });
-    return { supported: true, readable: true, ...summarizeWindowsProxy(stdout, endpoint) };
+      { timeout: 2000, windowsHide: true, maxBuffer: 128 * 1024 }),
+      import("./windowsProxyNative").then(module => module.readSystemProxyFlags())]);
+    return { supported: true, readable: true, ...summarizeWindowsProxy(stdout, endpoint, activeFlags) };
   } catch { return { supported: true, readable: false }; }
 }
 
@@ -41,59 +44,54 @@ export function classifyWindowsProxyOwnership(reading: {
   autoDetect?: boolean;
 }): WindowsProxyOwnership {
   if (!reading.supported || !reading.readable) return "unknown";
-  // A foreign endpoint, PAC, or auto-detection can be intentional. Never take
-  // ownership of those settings based on a successful loopback probe.
+  // Diagnostic only: the active Route guard repairs all known mismatches.
   if (!reading.httpMatches || !reading.httpsMatches || reading.pacConfigured || reading.autoDetect) return "foreign";
   return reading.enabled ? "owned" : "detached";
 }
 
-/** One confirmed repair until the monitor observes a fresh stable owned period. */
-export class WindowsProxyRecoveryGate {
-  private detachedSamples = 0;
-  private repairAttempted = false;
-  private suspended = false;
+export const WINDOWS_PROXY_RETRY_MS = 10_000;
+const MAX_PROXY_CONFIRMATION_GAP_MS = 5_000;
 
-  observe(state: WindowsProxyOwnership): "healthy" | "retry" | "repair" | "foreign" | "unknown" | "suspended" {
+/** Confirm changes and rate-limit writes while Route owns the capture switch. */
+export class WindowsProxyRecoveryGate {
+  private mismatchSamples = 0;
+  private observedAt: number | null = null;
+  private attemptedAt: number | null = null;
+
+  observe(state: WindowsProxyOwnership, now = Date.now()): "healthy" | "retry" | "repair" | "retrying" | "unknown" {
     if (state === "owned") {
-      this.detachedSamples = 0;
+      this.interruptConfirmation();
       return "healthy";
     }
     if (state === "unknown") {
-      this.detachedSamples = 0;
+      this.interruptConfirmation();
       return "unknown";
     }
-    if (state === "foreign") {
-      this.detachedSamples = 0;
-      this.suspended = true;
-      return "foreign";
-    }
-    this.detachedSamples = Math.min(2, this.detachedSamples + 1);
-    if (this.detachedSamples < 2) return "retry";
-    if (this.suspended || this.repairAttempted) {
-      this.suspended = true;
-      return "suspended";
-    }
-    this.repairAttempted = true;
+    if (this.observedAt === null || now < this.observedAt || now - this.observedAt > MAX_PROXY_CONFIRMATION_GAP_MS) this.mismatchSamples = 0;
+    this.observedAt = now;
+    this.mismatchSamples = Math.min(2, this.mismatchSamples + 1);
+    if (this.mismatchSamples < 2) return "retry";
+    if (this.attemptedAt !== null && now < this.attemptedAt) this.attemptedAt = now;
+    if (this.attemptedAt !== null && now - this.attemptedAt < WINDOWS_PROXY_RETRY_MS) return "retrying";
+    this.attemptedAt = now;
     return "repair";
   }
 
   reset(): void {
-    this.detachedSamples = 0;
-    this.repairAttempted = false;
-    this.suspended = false;
+    this.interruptConfirmation();
+    this.attemptedAt = null;
   }
 
   interruptConfirmation(): void {
-    this.detachedSamples = 0;
+    this.mismatchSamples = 0;
+    this.observedAt = null;
   }
-
-  suspend(): void { this.suspended = true; this.detachedSamples = 0; }
 
   cancelPendingRepair(): void {
-    if (this.suspended) return;
-    this.detachedSamples = 0;
-    this.repairAttempted = false;
+    this.interruptConfirmation();
   }
+
+  dispatched(now: number): void { this.attemptedAt = now; }
 }
 
 export interface SystemProxyProbeOptions {
